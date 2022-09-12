@@ -78,5 +78,5 @@ func (l *LevelLogger) Err(ctx context.Context, err error, fields Fields) {
 		"stacktrace": stacktrace,
 	}
 	mergeFields(allFields, fields)
-	l.Logger.Log(ctx, LevelError, 1, msg, fields)
+	l.Logger.Log(ctx, LevelError, 1, msg, allFields)
 }
