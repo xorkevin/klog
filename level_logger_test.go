@@ -35,6 +35,7 @@ func TestLevelLogger(t *testing.T) {
 		l.ErrorF(context.Background(), func() (string, Fields) { return "error details", nil })
 		l.Err(context.Background(), kerrors.WithMsg(nil, "something failed"), nil)
 		l.Err(context.Background(), errors.New("plain error"), nil)
+		l.WarnErr(context.Background(), kerrors.WithMsg(nil, "some warning"), nil)
 
 		d := json.NewDecoder(&b)
 		d.UseNumber()
@@ -103,6 +104,21 @@ func TestLevelLogger(t *testing.T) {
 			assert.Equal("plain-error", j["msg"])
 			assert.Equal("plain error", j["error"])
 			assert.Equal("NONE", j["stacktrace"])
+		}
+		{
+			var j map[string]interface{}
+			assert.NoError(d.Decode(&j))
+			assert.Equal("WARN", j["level"])
+			assert.Equal("some warning", j["msg"])
+			errstr, ok := j["error"].(string)
+			assert.True(ok)
+			stackstr := stackRegex.FindString(errstr)
+			assert.Contains(stackstr, "xorkevin.dev/klog/level_logger_test.go")
+			assert.Contains(stackstr, "xorkevin.dev/klog.TestLevelLogger")
+			assert.Equal("some warning: %!(STACKTRACE)", stackRegex.ReplaceAllString(errstr, "%!(STACKTRACE)"))
+			stacktracestr, ok := j["stacktrace"].(string)
+			assert.True(ok)
+			assert.True(strings.HasPrefix(stacktracestr, "xorkevin.dev/klog.TestLevelLogger"))
 		}
 	})
 }

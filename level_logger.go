@@ -51,6 +51,30 @@ func (l *LevelLogger) WarnF(ctx context.Context, fn FieldsFunc) {
 	l.Logger.LogF(ctx, LevelWarn, 1, fn)
 }
 
+func getErrFields(err error) (string, Fields) {
+	msg := "plain-error"
+	var kerr *kerrors.Error
+	if errors.As(err, &kerr) {
+		msg = kerr.Message
+	}
+	stacktrace := "NONE"
+	var serr *kerrors.StackTrace
+	if errors.As(err, &serr) {
+		stacktrace = serr.StackString()
+	}
+	return msg, Fields{
+		"error":      err.Error(),
+		"stacktrace": stacktrace,
+	}
+}
+
+// WarnErr logs at [LevelWarn]
+func (l *LevelLogger) WarnErr(ctx context.Context, err error, fields Fields) {
+	msg, allFields := getErrFields(err)
+	mergeFields(allFields, fields)
+	l.Logger.Log(ctx, LevelWarn, 1, msg, allFields)
+}
+
 // Error logs at [LevelError]
 func (l *LevelLogger) Error(ctx context.Context, msg string, fields Fields) {
 	l.Logger.Log(ctx, LevelError, 1, msg, fields)
@@ -63,20 +87,7 @@ func (l *LevelLogger) ErrorF(ctx context.Context, fn FieldsFunc) {
 
 // Err logs an error [LevelError]
 func (l *LevelLogger) Err(ctx context.Context, err error, fields Fields) {
-	msg := "plain-error"
-	var kerr *kerrors.Error
-	if errors.As(err, &kerr) {
-		msg = kerr.Message
-	}
-	stacktrace := "NONE"
-	var serr *kerrors.StackTrace
-	if errors.As(err, &serr) {
-		stacktrace = serr.StackString()
-	}
-	allFields := Fields{
-		"error":      err.Error(),
-		"stacktrace": stacktrace,
-	}
+	msg, allFields := getErrFields(err)
 	mergeFields(allFields, fields)
 	l.Logger.Log(ctx, LevelError, 1, msg, allFields)
 }
