@@ -1,8 +1,8 @@
 package klog
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"time"
@@ -43,10 +43,10 @@ func (w *JSONSerializer) Log(level Level, t time.Time, caller *Frame, path strin
 	unixtimeus := t.UnixMicro()
 	callerstr := ""
 	if caller != nil {
-		callerstr = fmt.Sprintf("%s %s:%d", caller.Function, caller.File, caller.Line)
+		callerstr = caller.String()
 	}
 	allFields := Fields{
-		w.FieldLevel:      level,
+		w.FieldLevel:      level.String(),
 		w.FieldTime:       timestr,
 		w.FieldTimeUnix:   unixtime,
 		w.FieldTimeUnixUS: unixtimeus,
@@ -55,12 +55,15 @@ func (w *JSONSerializer) Log(level Level, t time.Time, caller *Frame, path strin
 		w.FieldMsg:        msg,
 	}
 	mergeFields(allFields, fields)
-	b, err := json.Marshal(allFields)
-	if err != nil {
+	b := bytes.Buffer{}
+	j := json.NewEncoder(&b)
+	j.SetEscapeHTML(false)
+	if err := j.Encode(allFields); err != nil {
 		log.Println(err)
 		return
 	}
-	if _, err := w.W.Write(b); err != nil {
+	if _, err := io.Copy(w.W, &b); err != nil {
 		log.Println(err)
+		return
 	}
 }

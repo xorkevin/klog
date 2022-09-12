@@ -2,6 +2,7 @@ package klog
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -89,9 +90,15 @@ type (
 	KLogger struct {
 		minLevel   Level
 		serializer Serializer
+		clock      Clock
 		path       string
 		fields     Fields
 		parent     *KLogger
+	}
+
+	// Clock returns the current time
+	Clock interface {
+		Time() time.Time
 	}
 
 	// LoggerOpt is an options function for [New]
@@ -99,10 +106,11 @@ type (
 )
 
 // New creates a new [Logger]
-func New(opts ...LoggerOpt) *KLogger {
+func New(opts ...LoggerOpt) Logger {
 	l := &KLogger{
 		minLevel:   LevelInfo,
 		serializer: NewJSONSerializer(NewSyncWriter(os.Stdout)),
+		clock:      RealTime{},
 		path:       "",
 		fields:     nil,
 		parent:     nil,
@@ -126,9 +134,16 @@ func OptMinLevelStr(level string) LoggerOpt {
 }
 
 // OptSerializer returns a [LoggerOpt] that sets [KLogger] serializer
-func OptWriter(s Serializer) LoggerOpt {
+func OptSerializer(s Serializer) LoggerOpt {
 	return func(l *KLogger) {
 		l.serializer = s
+	}
+}
+
+// OptClock returns a [LoggerOpt] that sets [KLogger] clock
+func OptClock(c Clock) LoggerOpt {
+	return func(l *KLogger) {
+		l.clock = c
 	}
 }
 
@@ -178,13 +193,17 @@ func (l *KLogger) caller(skip int) *Frame {
 	}
 }
 
+func (f Frame) String() string {
+	return fmt.Sprintf("%s %s:%d", f.Function, f.File, f.Line)
+}
+
 // Log implements [Logger]
 func (l *KLogger) Log(ctx context.Context, level Level, skip int, msg string, fields Fields) {
 	if level < l.minLevel {
 		return
 	}
 
-	t := time.Now().UTC().Round(0)
+	t := l.clock.Time()
 	caller := l.caller(1 + skip)
 	path := strings.Builder{}
 	l.buildPath(&path)
@@ -214,6 +233,7 @@ func (l *KLogger) Sublogger(path string, fields Fields) Logger {
 	return &KLogger{
 		minLevel:   l.minLevel,
 		serializer: l.serializer,
+		clock:      l.clock,
 		path:       path,
 		fields:     fields,
 		parent:     l,
