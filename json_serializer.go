@@ -19,6 +19,7 @@ type (
 		FieldPath       string
 		FieldMsg        string
 		W               io.Writer
+		ErrorLog        *log.Logger
 	}
 )
 
@@ -33,11 +34,12 @@ func NewJSONSerializer(w io.Writer) *JSONSerializer {
 		FieldPath:       "path",
 		FieldMsg:        "msg",
 		W:               w,
+		ErrorLog:        log.New(io.Discard, "", log.LstdFlags),
 	}
 }
 
 // Log implements [Serializer]
-func (w *JSONSerializer) Log(level Level, t time.Time, caller *Frame, path string, msg string, fields Fields) {
+func (s *JSONSerializer) Log(level Level, t time.Time, caller *Frame, path string, msg string, fields Fields) {
 	timestr := t.Format(time.RFC3339Nano)
 	unixtime := t.Unix()
 	unixtimeus := t.UnixMicro()
@@ -46,24 +48,24 @@ func (w *JSONSerializer) Log(level Level, t time.Time, caller *Frame, path strin
 		callerstr = caller.String()
 	}
 	allFields := Fields{
-		w.FieldLevel:      level.String(),
-		w.FieldTime:       timestr,
-		w.FieldTimeUnix:   unixtime,
-		w.FieldTimeUnixUS: unixtimeus,
-		w.FieldCaller:     callerstr,
-		w.FieldPath:       path,
-		w.FieldMsg:        msg,
+		s.FieldLevel:      level.String(),
+		s.FieldTime:       timestr,
+		s.FieldTimeUnix:   unixtime,
+		s.FieldTimeUnixUS: unixtimeus,
+		s.FieldCaller:     callerstr,
+		s.FieldPath:       path,
+		s.FieldMsg:        msg,
 	}
 	mergeFields(allFields, fields)
 	b := bytes.Buffer{}
 	j := json.NewEncoder(&b)
 	j.SetEscapeHTML(false)
 	if err := j.Encode(allFields); err != nil {
-		log.Println(err)
+		s.ErrorLog.Println(err)
 		return
 	}
-	if _, err := io.Copy(w.W, &b); err != nil {
-		log.Println(err)
+	if _, err := io.Copy(s.W, &b); err != nil {
+		s.ErrorLog.Println(err)
 		return
 	}
 }
