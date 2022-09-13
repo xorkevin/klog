@@ -120,5 +120,7 @@ func TestLevelLogger(t *testing.T) {
 			assert.True(ok)
 			assert.True(strings.HasPrefix(stacktracestr, "xorkevin.dev/klog.TestLevelLogger"))
 		}
+
+		assert.False(d.More())
 	})
 }

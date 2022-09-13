@@ -180,6 +180,7 @@ func TestKLogger(t *testing.T) {
 				assert.Contains(callerstr, "xorkevin.dev/klog.TestKLogger")
 				assert.Contains(callerstr, "xorkevin.dev/klog/klog_test.go")
 			}
+			assert.False(d.More())
 		})
 	}
 }
