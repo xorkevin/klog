@@ -86,6 +86,8 @@ func TestLevelLogger(t *testing.T) {
 			var j map[string]interface{}
 			assert.NoError(d.Decode(&j))
 			assert.Equal("ERROR", j["level"])
+			assert.Contains(j["caller"], "xorkevin.dev/klog/level_logger_test.go")
+			assert.Contains(j["caller"], "xorkevin.dev/klog.TestLevelLogger")
 			assert.Equal("something failed", j["msg"])
 			errstr, ok := j["error"].(string)
 			assert.True(ok)
