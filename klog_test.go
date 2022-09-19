@@ -69,12 +69,13 @@ func TestLevel(t *testing.T) {
 
 type (
 	testClock struct {
-		t time.Time
+		t  time.Time
+		mt time.Time
 	}
 )
 
-func (c testClock) Time() time.Time {
-	return c.t
+func (c testClock) Time() (time.Time, time.Time) {
+	return c.t, c.mt
 }
 
 func TestKLogger(t *testing.T) {
@@ -88,6 +89,7 @@ func TestKLogger(t *testing.T) {
 		Test  string
 		Opts  []LoggerOpt
 		T     time.Time
+		MT    time.Time
 		Ctx   context.Context
 		Fn    FieldsFunc
 		Exp   map[string]interface{}
@@ -97,6 +99,7 @@ func TestKLogger(t *testing.T) {
 			Test: "logs messages",
 			Opts: []LoggerOpt{OptMinLevelStr("INFO"), OptPath("base"), OptFields(Fields{"f1": "v1"})},
 			T:    time.Date(1991, time.August, 25, 20, 57, 8, 0, time.UTC),
+			MT:   time.Date(1991, time.August, 25, 20, 57, 9, 0, time.UTC),
 			Ctx: WithFields(ctx, Fields{
 				"f2": []string{"v2"},
 			}),
@@ -107,34 +110,41 @@ func TestKLogger(t *testing.T) {
 				}
 			},
 			Exp: map[string]interface{}{
-				"level":      "INFO",
-				"msg":        "test message",
-				"path":       ".base.sublog",
-				"time":       "1991-08-25T20:57:08Z",
-				"unixtime":   json.Number(strconv.Itoa(683153828)),
-				"unixtimeus": json.Number(strconv.Itoa(683153828000000)),
-				"f1":         "v11",
-				"hello":      "foo",
-				"f2":         []interface{}{"v2"},
-				"f3":         "v3",
+				"level":          "INFO",
+				"msg":            "test message",
+				"path":           ".base.sublog",
+				"time":           "1991-08-25T20:57:08Z",
+				"unixtime":       json.Number(strconv.Itoa(683153828)),
+				"unixtimeus":     json.Number(strconv.Itoa(683153828000000)),
+				"monotime":       "1991-08-25T20:57:09Z",
+				"monounixtime":   json.Number(strconv.Itoa(683153829)),
+				"monounixtimeus": json.Number(strconv.Itoa(683153829000000)),
+				"f1":             "v11",
+				"hello":          "foo",
+				"f2":             []interface{}{"v2"},
+				"f3":             "v3",
 			},
 		},
 		{
 			Test: "handles nil context",
 			Opts: []LoggerOpt{OptMinLevelStr("INFO"), OptFields(Fields{"f1": "v1"})},
 			T:    time.Date(1991, time.August, 25, 20, 57, 8, 0, time.UTC),
+			MT:   time.Date(1991, time.August, 25, 20, 57, 9, 0, time.UTC),
 			Ctx:  nil,
 			Fn: func() (string, Fields) {
 				return "some message", nil
 			},
 			Exp: map[string]interface{}{
-				"level":      "INFO",
-				"msg":        "some message",
-				"path":       ".sublog",
-				"time":       "1991-08-25T20:57:08Z",
-				"unixtime":   json.Number(strconv.Itoa(683153828)),
-				"unixtimeus": json.Number(strconv.Itoa(683153828000000)),
-				"f1":         "v11",
+				"level":          "INFO",
+				"msg":            "some message",
+				"path":           ".sublog",
+				"time":           "1991-08-25T20:57:08Z",
+				"unixtime":       json.Number(strconv.Itoa(683153828)),
+				"unixtimeus":     json.Number(strconv.Itoa(683153828000000)),
+				"monotime":       "1991-08-25T20:57:09Z",
+				"monounixtime":   json.Number(strconv.Itoa(683153829)),
+				"monounixtimeus": json.Number(strconv.Itoa(683153829000000)),
+				"f1":             "v11",
 			},
 		},
 		{
@@ -155,7 +165,7 @@ func TestKLogger(t *testing.T) {
 			assert := require.New(t)
 
 			b := bytes.Buffer{}
-			l := New(append(tc.Opts, OptSerializer(NewJSONSerializer(NewSyncWriter(&b))), OptClock(testClock{t: tc.T}))...)
+			l := New(append(tc.Opts, OptSerializer(NewJSONSerializer(NewSyncWriter(&b))), OptClock(testClock{t: tc.T, mt: tc.MT}))...)
 			l = l.Sublogger("sublog", Fields{
 				"f1": "v11",
 			})

@@ -30,7 +30,8 @@ func TestJSONSerializer(t *testing.T) {
 		s := NewJSONSerializer(failWriter{})
 		b := bytes.Buffer{}
 		s.ErrorLog = log.New(&b, "", log.LstdFlags|log.LUTC)
-		s.Log(LevelInfo, time.Now().UTC().Round(0), nil, "", "hello", nil)
+		ti := time.Now().UTC()
+		s.Log(LevelInfo, ti.Round(0), ti, nil, "", "hello", nil)
 
 		assert.Contains(b.String(), "Failed writing")
 	})

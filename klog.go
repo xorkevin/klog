@@ -75,7 +75,7 @@ type (
 
 	// Serializer is a log serializer adapter
 	Serializer interface {
-		Log(level Level, t time.Time, caller *Frame, path string, msg string, fields Fields)
+		Log(level Level, t, mt time.Time, caller *Frame, path string, msg string, fields Fields)
 	}
 
 	// Frame is a logger caller frame
@@ -96,9 +96,9 @@ type (
 		parent     *KLogger
 	}
 
-	// Clock returns the current time
+	// Clock returns the current and monotonic time
 	Clock interface {
-		Time() time.Time
+		Time() (cur time.Time, mono time.Time)
 	}
 
 	// LoggerOpt is an options function for [New]
@@ -203,7 +203,7 @@ func (l *KLogger) Log(ctx context.Context, level Level, skip int, msg string, fi
 		return
 	}
 
-	t := l.clock.Time()
+	t, mt := l.clock.Time()
 	caller := l.caller(1 + skip)
 	path := strings.Builder{}
 	l.buildPath(&path)
@@ -215,7 +215,7 @@ func (l *KLogger) Log(ctx context.Context, level Level, skip int, msg string, fi
 	for k := l; k != nil; k = k.parent {
 		mergeFields(allFields, k.fields)
 	}
-	l.serializer.Log(level, t, caller, path.String(), msg, allFields)
+	l.serializer.Log(level, t, mt, caller, path.String(), msg, allFields)
 }
 
 // LogF implements [Logger]

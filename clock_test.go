@@ -15,6 +15,8 @@ func TestRealTime(t *testing.T) {
 		assert := require.New(t)
 
 		var c Clock = RealTime{}
-		assert.False(c.Time().IsZero())
+		ti, mt := c.Time()
+		assert.False(ti.IsZero())
+		assert.False(mt.IsZero())
 	})
 }
