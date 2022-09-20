@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/stretchr/testify v1.8.0
-	xorkevin.dev/kerrors v0.1.3
+	xorkevin.dev/kerrors v0.1.4
 )
 
 require (

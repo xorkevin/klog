@@ -55,13 +55,14 @@ func (l *LevelLogger) WarnF(ctx context.Context, fn FieldsFunc) {
 
 func getErrFields(err error) (string, Fields) {
 	msg := "plain-error"
-	if msger, ok := err.(kerrors.ErrorMsger); ok {
+	var msger kerrors.ErrorMsger
+	if errors.As(err, &msger) {
 		msg = msger.ErrorMsg()
 	}
 	stacktrace := "NONE"
-	m := kerrors.StackStringerMatcher{}
-	if errors.As(err, &m) {
-		stacktrace = m.StackStringer.StackString()
+	var stackstringer kerrors.StackStringer
+	if errors.As(err, &stackstringer) {
+		stacktrace = stackstringer.StackString()
 	}
 	return msg, Fields{
 		"error":      err.Error(),
