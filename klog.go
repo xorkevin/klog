@@ -62,9 +62,19 @@ func (l Level) String() string {
 type (
 	// Logger writes logs with context
 	Logger interface {
-		Log(ctx context.Context, level Level, skip int, msg string, fields Fields)
-		LogF(ctx context.Context, level Level, skip int, fn FieldsFunc)
+		Log(ctx context.Context, level Level, path string, skip int, msg string, fields Fields)
+	}
+
+	// SubLogger is a logger that can create subloggers
+	SubLogger interface {
+		Logger
 		Sublogger(path string, fields Fields) Logger
+	}
+
+	// LoggerFn is a logger that can conditionally compute fields to log
+	LoggerFn interface {
+		Logger
+		LogFn(ctx context.Context, level Level, path string, skip int, fn FieldsFunc)
 	}
 
 	// Fields is associated log data
@@ -179,7 +189,7 @@ func (l *KLogger) buildPath(s *strings.Builder) {
 	}
 }
 
-func (l *KLogger) caller(skip int) *Frame {
+func linecaller(skip int) *Frame {
 	callers := [1]uintptr{}
 	if n := runtime.Callers(1+skip, callers[:]); n < 1 {
 		return nil
@@ -198,15 +208,19 @@ func (f Frame) String() string {
 }
 
 // Log implements [Logger]
-func (l *KLogger) Log(ctx context.Context, level Level, skip int, msg string, fields Fields) {
+func (l *KLogger) Log(ctx context.Context, level Level, path string, skip int, msg string, fields Fields) {
 	if level < l.minLevel {
 		return
 	}
 
 	t, mt := l.clock.Time()
-	caller := l.caller(1 + skip)
-	path := strings.Builder{}
-	l.buildPath(&path)
+	caller := linecaller(1 + skip)
+	fullpath := strings.Builder{}
+	l.buildPath(&fullpath)
+	if path != "" {
+		fullpath.WriteByte('.')
+		fullpath.WriteString(path)
+	}
 	allFields := Fields{}
 	mergeFields(allFields, fields)
 	for f := getCtxFields(ctx); f != nil; f = f.parent {
@@ -215,20 +229,20 @@ func (l *KLogger) Log(ctx context.Context, level Level, skip int, msg string, fi
 	for k := l; k != nil; k = k.parent {
 		mergeFields(allFields, k.fields)
 	}
-	l.serializer.Log(level, t, mt, caller, path.String(), msg, allFields)
+	l.serializer.Log(level, t, mt, caller, fullpath.String(), msg, allFields)
 }
 
-// LogF implements [Logger]
-func (l *KLogger) LogF(ctx context.Context, level Level, skip int, fn FieldsFunc) {
+// LogFn implements [LoggerFn]
+func (l *KLogger) LogFn(ctx context.Context, level Level, path string, skip int, fn FieldsFunc) {
 	if level < l.minLevel {
 		return
 	}
 
 	msg, fields := fn()
-	l.Log(ctx, level, 1+skip, msg, fields)
+	l.Log(ctx, level, path, 1+skip, msg, fields)
 }
 
-// Sublogger implements [Logger] and creates a new sublogger
+// Sublogger implements [SubLogger] and creates a new sublogger
 func (l *KLogger) Sublogger(path string, fields Fields) Logger {
 	return &KLogger{
 		minLevel:   l.minLevel,
@@ -238,6 +252,57 @@ func (l *KLogger) Sublogger(path string, fields Fields) Logger {
 		fields:     fields,
 		parent:     l,
 	}
+}
+
+type (
+	subLogger struct {
+		log    Logger
+		path   string
+		fields Fields
+	}
+)
+
+// Sub returns a sublogger with path and fields.
+//
+// If l implements [SubLogger], then Sub returns l.Sublogger(path, fields),
+// else a new Logger will be returned with a subppath of path.
+func Sub(l Logger, path string, fields Fields) Logger {
+	if sl, ok := l.(SubLogger); ok {
+		return sl.Sublogger(path, fields)
+	}
+	return &subLogger{
+		log:    l,
+		path:   path,
+		fields: fields,
+	}
+}
+
+// Log implements [Logger]
+func (l *subLogger) Log(ctx context.Context, level Level, path string, skip int, msg string, fields Fields) {
+	allFields := Fields{}
+	mergeFields(allFields, fields)
+	for f := getCtxFields(ctx); f != nil; f = f.parent {
+		mergeFields(allFields, f.fields)
+	}
+	mergeFields(allFields, l.fields)
+	fullpath := l.path
+	if path != "" {
+		fullpath += "." + path
+	}
+	l.log.Log(context.Background(), level, fullpath, 1+skip, msg, allFields)
+}
+
+// LogFn computes fields conditionally to log
+//
+// If l implements [LoggerFn], then LogFn calls l.LogFn, else it will execute
+// fn before calling l.Log.
+func LogFn(l Logger, ctx context.Context, level Level, path string, skip int, fn FieldsFunc) {
+	if fl, ok := l.(LoggerFn); ok {
+		fl.LogFn(ctx, level, path, 1+skip, fn)
+		return
+	}
+	msg, fields := fn()
+	l.Log(ctx, level, path, 1+skip, msg, fields)
 }
 
 type (
