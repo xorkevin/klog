@@ -28,8 +28,8 @@ func (l *LevelLogger) Debug(ctx context.Context, msg string, fields Fields) {
 	l.Logger.Log(ctx, LevelDebug, "", 1+l.Skip, msg, fields)
 }
 
-// DebugF logs at [LevelDebug]
-func (l *LevelLogger) DebugF(ctx context.Context, fn FieldsFunc) {
+// DebugFn logs at [LevelDebug]
+func (l *LevelLogger) DebugFn(ctx context.Context, fn FieldsFunc) {
 	LogFn(l.Logger, ctx, LevelDebug, "", 1+l.Skip, fn)
 }
 
@@ -38,8 +38,8 @@ func (l *LevelLogger) Info(ctx context.Context, msg string, fields Fields) {
 	l.Logger.Log(ctx, LevelInfo, "", 1+l.Skip, msg, fields)
 }
 
-// InfoF logs at [LevelInfo]
-func (l *LevelLogger) InfoF(ctx context.Context, fn FieldsFunc) {
+// InfoFn logs at [LevelInfo]
+func (l *LevelLogger) InfoFn(ctx context.Context, fn FieldsFunc) {
 	LogFn(l.Logger, ctx, LevelInfo, "", 1+l.Skip, fn)
 }
 
@@ -48,8 +48,8 @@ func (l *LevelLogger) Warn(ctx context.Context, msg string, fields Fields) {
 	l.Logger.Log(ctx, LevelWarn, "", 1+l.Skip, msg, fields)
 }
 
-// WarnF logs at [LevelWarn]
-func (l *LevelLogger) WarnF(ctx context.Context, fn FieldsFunc) {
+// WarnFn logs at [LevelWarn]
+func (l *LevelLogger) WarnFn(ctx context.Context, fn FieldsFunc) {
 	LogFn(l.Logger, ctx, LevelWarn, "", 1+l.Skip, fn)
 }
 
@@ -82,8 +82,8 @@ func (l *LevelLogger) Error(ctx context.Context, msg string, fields Fields) {
 	l.Logger.Log(ctx, LevelError, "", 1+l.Skip, msg, fields)
 }
 
-// ErrorF logs at [LevelError]
-func (l *LevelLogger) ErrorF(ctx context.Context, fn FieldsFunc) {
+// ErrorFn logs at [LevelError]
+func (l *LevelLogger) ErrorFn(ctx context.Context, fn FieldsFunc) {
 	LogFn(l.Logger, ctx, LevelError, "", 1+l.Skip, fn)
 }
 
