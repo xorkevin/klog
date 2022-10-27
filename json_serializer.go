@@ -69,7 +69,7 @@ func (s *JSONSerializer) Log(level Level, t time.Time, mt time.Time, caller *Fra
 		s.FieldMsg:            msg,
 	}
 	mergeFields(allFields, fields)
-	b := bytes.Buffer{}
+	var b bytes.Buffer
 	j := json.NewEncoder(&b)
 	j.SetEscapeHTML(false)
 	if err := j.Encode(allFields); err != nil {
