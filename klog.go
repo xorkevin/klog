@@ -3,10 +3,8 @@ package klog
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
-	"strings"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -80,12 +78,15 @@ type (
 
 	// Event is a log event
 	Event struct {
-		Level          Level
-		Time           time.Time
-		PC             uintptr
-		Path           string
-		Message        string
-		Context        context.Context
+		Level   Level
+		Time    time.Time
+		PC      uintptr
+		Message string
+		Context context.Context
+		attrs   attrsList
+	}
+
+	attrsList struct {
 		inlineAttrs    [eventInlineAttrsSize]Attr
 		numInlineAttrs int
 		attrs          []Attr
@@ -93,12 +94,11 @@ type (
 )
 
 // NewEvent creates a new log event
-func NewEvent(level Level, t time.Time, pc uintptr, path string, msg string, ctx context.Context) Event {
+func NewEvent(level Level, t time.Time, pc uintptr, msg string, ctx context.Context) Event {
 	return Event{
 		Level:   level,
 		Time:    t,
 		PC:      pc,
-		Path:    path,
 		Message: msg,
 		Context: ctx,
 	}
@@ -106,9 +106,13 @@ func NewEvent(level Level, t time.Time, pc uintptr, path string, msg string, ctx
 
 // AddAttrs adds [Attr] to an event
 func (e *Event) AddAttrs(attrs ...Attr) {
-	n := copy(e.inlineAttrs[e.numInlineAttrs:], attrs)
-	e.numInlineAttrs += n
-	e.attrs = append(e.attrs, attrs[n:]...)
+	e.attrs.addAttrs(attrs)
+}
+
+func (a *attrsList) addAttrs(attrs []Attr) {
+	n := copy(a.inlineAttrs[a.numInlineAttrs:], attrs)
+	a.numInlineAttrs += n
+	a.attrs = append(a.attrs, attrs[n:]...)
 }
 
 type (
@@ -116,28 +120,26 @@ type (
 	Logger interface {
 		Enabled(level Level) bool
 		Log(ctx context.Context, level Level, skip int, msg string, attrs ...Attr)
+		Handler() Handler
 	}
 
 	// SubLogger is a logger that can create subloggers
 	SubLogger interface {
 		Logger
-		Sublogger(pathSegment string, attrs ...Attr) Logger
+		Sublogger(pathSegment string, attrs []Attr) Logger
 	}
 
 	// Handler is a log event handler
 	Handler interface {
 		Handle(e Event)
-		WithAttrs(attrs []Attr) Handler
+		Subhandler(pathSegment string, attrs []Attr) Handler
 	}
 
 	// KLogger is a context logger that writes logs to a [Handler]
 	KLogger struct {
-		handler       Handler
-		minLevel      Level
-		clock         Clock
-		pathSegment   string
-		pathSeparator string
-		parent        *KLogger
+		handler  Handler
+		minLevel Level
+		clock    Clock
 	}
 
 	// Clock returns the current and monotonic time
@@ -160,17 +162,21 @@ type (
 // New creates a new [Logger]
 func New(opts ...LoggerOpt) Logger {
 	l := &KLogger{
-		minLevel:      LevelInfo,
-		handler:       NewJSONSerializer(NewSyncWriter(os.Stdout)),
-		clock:         RealTime{},
-		pathSegment:   "",
-		pathSeparator: "::",
-		parent:        nil,
+		handler:  NewJSONSerializer(NewSyncWriter(os.Stdout)),
+		minLevel: LevelInfo,
+		clock:    RealTime{},
 	}
 	for _, i := range opts {
 		i(l)
 	}
 	return l
+}
+
+// OptHandler returns a [LoggerOpt] that sets [KLogger] handler
+func OptHandler(h Handler) LoggerOpt {
+	return func(l *KLogger) {
+		l.handler = h
+	}
 }
 
 // OptMinLevel returns a [LoggerOpt] that sets [KLogger] minLevel
@@ -185,13 +191,6 @@ func OptMinLevelStr(level string) LoggerOpt {
 	return OptMinLevel(LevelFromString(level))
 }
 
-// OptHandler returns a [LoggerOpt] that sets [KLogger] handler
-func OptHandler(h Handler) LoggerOpt {
-	return func(l *KLogger) {
-		l.handler = h
-	}
-}
-
 // OptClock returns a [LoggerOpt] that sets [KLogger] clock
 func OptClock(c Clock) LoggerOpt {
 	return func(l *KLogger) {
@@ -199,24 +198,10 @@ func OptClock(c Clock) LoggerOpt {
 	}
 }
 
-// OptPath returns a [LoggerOpt] that sets [KLogger] path
-func OptPath(segment string) LoggerOpt {
+// OptSubhandler returns a [LoggerOpt] that sets [KLogger] handler sublogger
+func OptSubhandler(pathSegment string, attrs []Attr) LoggerOpt {
 	return func(l *KLogger) {
-		l.pathSegment = segment
-	}
-}
-
-// OptPathSeparator returns a [LoggerOpt] that sets [KLogger] pathSeparator
-func OptPathSeparator(separator string) LoggerOpt {
-	return func(l *KLogger) {
-		l.pathSeparator = separator
-	}
-}
-
-// OptAttrs returns a [LoggerOpt] that sets [KLogger] attrs
-func OptAttrs(attrs ...Attr) LoggerOpt {
-	return func(l *KLogger) {
-		l.handler = l.handler.WithAttrs(attrs)
+		l.handler = l.handler.Subhandler(pathSegment, attrs)
 	}
 }
 
@@ -233,10 +218,8 @@ func (l *KLogger) Log(ctx context.Context, level Level, skip int, msg string, at
 
 	t := l.clock.Time() // monotonic time
 	pc := linepc(1 + skip)
-	var fullpath strings.Builder
-	l.buildPath(&fullpath)
 
-	ev := NewEvent(level, t, pc, fullpath.String(), msg, ctx)
+	ev := NewEvent(level, t, pc, msg, ctx)
 	ev.AddAttrs(attrs...)
 
 	l.handler.Handle(ev)
@@ -250,25 +233,9 @@ func linepc(skip int) uintptr {
 	return callers[0]
 }
 
-func (l *KLogger) buildPath(w io.Writer) {
-	if l.parent != nil {
-		l.parent.buildPath(w)
-	}
-	if l.pathSegment != "" {
-		io.WriteString(w, l.pathSeparator)
-		io.WriteString(w, l.pathSegment)
-	}
-}
-
-func mergeAttrs(dest, from []Attr, seen map[string]struct{}) []Attr {
-	for _, i := range from {
-		if _, ok := seen[i.Key]; ok {
-			continue
-		}
-		dest = append(dest, i)
-		seen[i.Key] = struct{}{}
-	}
-	return dest
+// Handler implements [Logger] and returns the handler
+func (l *KLogger) Handler() Handler {
+	return l.handler
 }
 
 func linecaller(skip int) *Frame {
@@ -290,71 +257,33 @@ func (f Frame) String() string {
 }
 
 // Sublogger implements [SubLogger] and creates a new sublogger
-func (l *KLogger) Sublogger(path string, fields Fields) Logger {
+func (l *KLogger) Sublogger(pathSegment string, attrs []Attr) Logger {
 	return &KLogger{
+		handler:  l.handler.Subhandler(pathSegment, attrs),
 		minLevel: l.minLevel,
-		handler:  l.handler,
 		clock:    l.clock,
-		path:     path,
-		fields:   fields,
-		parent:   l,
 	}
 }
-
-type (
-	subLogger struct {
-		log    Logger
-		path   string
-		fields Fields
-	}
-)
 
 // Sub returns a sublogger with path and fields.
 //
-// If l implements [SubLogger], then Sub returns l.Sublogger(path, fields),
-// else a new Logger will be returned with a subppath of path.
-func Sub(l Logger, path string, fields Fields) Logger {
+// If l implements [SubLogger], then Sub returns l.Sublogger(path, attrs),
+// else a new Logger will be returned with a subppath of pathSegment.
+func Sub(l Logger, pathSegment string, attrs ...Attr) Logger {
 	if sl, ok := l.(SubLogger); ok {
-		return sl.Sublogger(path, fields)
+		return sl.Sublogger(pathSegment, attrs)
 	}
-	return &subLogger{
-		log:    l,
-		path:   path,
-		fields: fields,
-	}
-}
-
-// Log implements [Logger]
-func (l *subLogger) Log(ctx context.Context, level Level, path string, skip int, msg string, fields Fields) {
-	allFields := Fields{}
-	mergeFields(allFields, fields)
-	for f := getCtxFields(ctx); f != nil; f = f.parent {
-		mergeFields(allFields, f.fields)
-	}
-	mergeFields(allFields, l.fields)
-	fullpath := l.path
-	if path != "" {
-		fullpath += "." + path
-	}
-	l.log.Log(context.Background(), level, fullpath, 1+skip, msg, allFields)
+	return New(OptHandler(l.Handler()), OptSubhandler(pathSegment, attrs))
 }
 
 type (
 	ctxKeyAttrs struct{}
 
 	ctxAttrs struct {
-		inlineAttrs    [eventInlineAttrsSize]Attr
-		numInlineAttrs int
-		attrs          []Attr
-		parent         *ctxAttrs
+		attrs  attrsList
+		parent *ctxAttrs
 	}
 )
-
-func (c *ctxAttrs) addAttrs(attrs ...Attr) {
-	n := copy(c.inlineAttrs[c.numInlineAttrs:], attrs)
-	c.numInlineAttrs += n
-	c.attrs = append(c.attrs, attrs[n:]...)
-}
 
 func getCtxAttrs(ctx context.Context) *ctxAttrs {
 	if ctx == nil {
@@ -371,8 +300,8 @@ func setCtxAttrs(ctx context.Context, fields *ctxAttrs) context.Context {
 	return context.WithValue(ctx, ctxKeyAttrs{}, fields)
 }
 
-// WithAttrs adds log attrs to context
-func WithAttrs(ctx context.Context, attrs ...Attr) context.Context {
+// CtxWithAttrs adds log attrs to context
+func CtxWithAttrs(ctx context.Context, attrs ...Attr) context.Context {
 	return ExtendCtx(ctx, ctx, attrs...)
 }
 
@@ -381,6 +310,6 @@ func ExtendCtx(dest, ctx context.Context, attrs ...Attr) context.Context {
 	k := &ctxAttrs{
 		parent: getCtxAttrs(ctx),
 	}
-	k.addAttrs(attrs...)
+	k.attrs.addAttrs(attrs)
 	return setCtxAttrs(dest, k)
 }
