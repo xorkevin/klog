@@ -2,7 +2,6 @@ package klog
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"runtime"
 	"time"
@@ -24,24 +23,6 @@ const (
 	LevelNone
 )
 
-// LevelFromString creates a log level from a string
-func LevelFromString(s string) Level {
-	switch s {
-	case "DEBUG":
-		return LevelDebug
-	case "INFO":
-		return LevelInfo
-	case "WARN":
-		return LevelWarn
-	case "ERROR":
-		return LevelError
-	case "NONE":
-		return LevelNone
-	default:
-		return LevelInfo
-	}
-}
-
 // String implements [fmt.Stringer]
 func (l Level) String() string {
 	switch l {
@@ -58,6 +39,30 @@ func (l Level) String() string {
 	default:
 		return "UNSET"
 	}
+}
+
+// MarshalText implements [encoding.TextMarshaler]
+func (l Level) MarshalText() ([]byte, error) {
+	return []byte(l.String()), nil
+}
+
+// UnmarshalText implements [encoding.TextUnmarshaler]
+func (l *Level) UnmarshalText(data []byte) error {
+	switch string(data) {
+	case "DEBUG":
+		*l = LevelDebug
+	case "INFO":
+		*l = LevelInfo
+	case "WARN":
+		*l = LevelWarn
+	case "ERROR":
+		*l = LevelError
+	case "NONE":
+		*l = LevelNone
+	default:
+		*l = LevelInfo
+	}
+	return nil
 }
 
 const (
@@ -131,6 +136,7 @@ type (
 
 	// Handler is a log event handler
 	Handler interface {
+		Enabled(level Level) bool
 		Handle(e Event)
 		Subhandler(pathSegment string, attrs []Attr) Handler
 	}
@@ -149,20 +155,17 @@ type (
 
 	// LoggerOpt is an options function for [New]
 	LoggerOpt = func(l *KLogger)
+)
 
-	// Frame is a logger caller frame
-	Frame struct {
-		Function string
-		File     string
-		Line     int
-		PC       uintptr
-	}
+var (
+	defaultHandler = NewJSONSlogHandler(NewSyncWriter(os.Stdout))
+	defaultLogger  = New()
 )
 
 // New creates a new [Logger]
 func New(opts ...LoggerOpt) Logger {
 	l := &KLogger{
-		handler:  NewJSONSerializer(NewSyncWriter(os.Stdout)),
+		handler:  defaultHandler,
 		minLevel: LevelInfo,
 		clock:    RealTime{},
 	}
@@ -187,8 +190,10 @@ func OptMinLevel(level Level) LoggerOpt {
 }
 
 // OptMinLevelStr returns a [LoggerOpt] that sets [KLogger] minLevel from a string
-func OptMinLevelStr(level string) LoggerOpt {
-	return OptMinLevel(LevelFromString(level))
+func OptMinLevelStr(s string) LoggerOpt {
+	var level Level
+	_ = level.UnmarshalText([]byte(s))
+	return OptMinLevel(level)
 }
 
 // OptClock returns a [LoggerOpt] that sets [KLogger] clock
@@ -207,7 +212,7 @@ func OptSubhandler(pathSegment string, attrs []Attr) LoggerOpt {
 
 // Enabled implements [Logger] and returns if the logger is enabled for a level
 func (l *KLogger) Enabled(level Level) bool {
-	return level >= l.minLevel
+	return level >= l.minLevel && l.handler.Enabled(level)
 }
 
 // Log implements [Logger] and logs an event to its handler
@@ -236,24 +241,6 @@ func linepc(skip int) uintptr {
 // Handler implements [Logger] and returns the handler
 func (l *KLogger) Handler() Handler {
 	return l.handler
-}
-
-func linecaller(skip int) *Frame {
-	callers := [1]uintptr{}
-	if n := runtime.Callers(1+skip, callers[:]); n < 1 {
-		return nil
-	}
-	frame, _ := runtime.CallersFrames(callers[:]).Next()
-	return &Frame{
-		Function: frame.Function,
-		File:     frame.File,
-		Line:     frame.Line,
-		PC:       frame.PC,
-	}
-}
-
-func (f Frame) String() string {
-	return fmt.Sprintf("%s %s:%d", f.Function, f.File, f.Line)
 }
 
 // Sublogger implements [SubLogger] and creates a new sublogger

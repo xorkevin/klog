@@ -8,7 +8,7 @@ import (
 type (
 	// SyncWriter is a thread safe writer
 	SyncWriter struct {
-		mu *sync.Mutex
+		mu sync.Mutex
 		w  io.Writer
 	}
 )
@@ -16,8 +16,7 @@ type (
 // NewSyncWriter creates a new [*SyncWriter]
 func NewSyncWriter(w io.Writer) *SyncWriter {
 	return &SyncWriter{
-		mu: &sync.Mutex{},
-		w:  w,
+		w: w,
 	}
 }
 
