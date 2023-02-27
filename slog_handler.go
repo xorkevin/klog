@@ -1,35 +1,17 @@
 package klog
 
 import (
+	"context"
 	"io"
 
 	"golang.org/x/exp/slog"
 )
 
-var (
-	slogBuiltinKeys = map[string]struct{}{
-		slog.LevelKey:   {},
-		slog.TimeKey:    {},
-		slog.SourceKey:  {},
-		slog.MessageKey: {},
-	}
-)
-
-func levelToSlogLevel(level Level) slog.Level {
-	switch level {
-	case LevelDebug:
-		return slog.LevelDebug
-	case LevelInfo:
-		return slog.LevelInfo
-	case LevelWarn:
-		return slog.LevelWarn
-	case LevelError:
-		return slog.LevelError
-	case LevelNone:
-		return slog.LevelError + 4
-	default:
-		return slog.LevelInfo
-	}
+var slogBuiltinKeys = map[string]struct{}{
+	slog.LevelKey:   {},
+	slog.TimeKey:    {},
+	slog.SourceKey:  {},
+	slog.MessageKey: {},
 }
 
 type (
@@ -41,8 +23,8 @@ type (
 		FieldMsg      string
 		PathSeparator string
 		Path          string
-		FieldsSet     map[string]struct{}
-		SlogHandler   slog.Handler
+		fieldsSet     map[string]struct{}
+		slogHandler   slog.Handler
 	}
 )
 
@@ -55,8 +37,8 @@ func NewSlogHandler(handler slog.Handler) *SlogHandler {
 		FieldMsg:      "msg",
 		PathSeparator: ".",
 		Path:          "",
-		FieldsSet:     map[string]struct{}{},
-		SlogHandler:   handler,
+		fieldsSet:     map[string]struct{}{},
+		slogHandler:   handler,
 	}
 }
 
@@ -84,22 +66,21 @@ func (h *SlogHandler) clone() *SlogHandler {
 		FieldMsg:      h.FieldMsg,
 		PathSeparator: h.PathSeparator,
 		Path:          h.Path,
-		FieldsSet:     copyFieldsSet(h.FieldsSet),
-		SlogHandler:   h.SlogHandler,
+		fieldsSet:     copyFieldsSet(h.fieldsSet),
+		slogHandler:   h.slogHandler,
 	}
 }
 
-func (h *SlogHandler) Enabled(level Level) bool {
-	return h.SlogHandler.Enabled(nil, levelToSlogLevel(level))
+func (h *SlogHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.slogHandler.Enabled(ctx, level)
 }
 
-func (h *SlogHandler) Handle(e Event) {
-	r := slog.NewRecord(e.Time, levelToSlogLevel(e.Level), e.Message, e.PC, e.Context)
+func (h *SlogHandler) Handle(ctx context.Context, rec slog.Record) {
 	// TODO add attrs
-	h.SlogHandler.Handle(r)
+	h.slogHandler.Handle(ctx, rec)
 }
 
-func (h *SlogHandler) Subhandler(pathSegment string, attrs []Attr) Handler {
+func (h *SlogHandler) Subhandler(pathSegment string, attrs []slog.Attr) Handler {
 	h2 := h.clone()
 	if pathSegment != "" {
 		h2.Path += h2.PathSeparator + pathSegment
@@ -107,16 +88,17 @@ func (h *SlogHandler) Subhandler(pathSegment string, attrs []Attr) Handler {
 	if len(attrs) > 0 {
 		attrsToAdd := make([]slog.Attr, 0, len(attrs))
 		for _, i := range attrs {
-			if _, ok := h2.FieldsSet[i.Key]; !ok {
-				h2.FieldsSet[i.Key] = struct{}{}
-				attrsToAdd = append(attrsToAdd, slog.Attr{
-					Key:   i.Key,
-					Value: i.Value.svalue,
-				})
+			if _, ok := slogBuiltinKeys[i.Key]; ok {
+				continue
 			}
+			if _, ok := h2.fieldsSet[i.Key]; ok {
+				continue
+			}
+			h2.fieldsSet[i.Key] = struct{}{}
+			attrsToAdd = append(attrsToAdd, i)
 		}
 		if len(attrsToAdd) > 0 {
-			h2.SlogHandler = h2.SlogHandler.WithAttrs(attrsToAdd)
+			h2.slogHandler = h2.slogHandler.WithAttrs(attrsToAdd)
 		}
 	}
 	return h2

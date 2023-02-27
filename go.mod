@@ -3,8 +3,8 @@ module xorkevin.dev/klog
 go 1.19
 
 require (
-	github.com/stretchr/testify v1.8.0
-	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9
+	github.com/stretchr/testify v1.8.2
+	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2
 	xorkevin.dev/kerrors v0.1.4
 )
 
