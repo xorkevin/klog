@@ -3,6 +3,7 @@ package klog
 import (
 	"context"
 	"io"
+	"strconv"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -39,6 +40,14 @@ func NewSlogHandler(handler slog.Handler) *SlogHandler {
 	}
 }
 
+func NewTextSlogHandler(w io.Writer) *SlogHandler {
+	return NewSlogHandler(
+		slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}.NewTextHandler(w),
+	)
+}
+
 func NewJSONSlogHandler(w io.Writer) *SlogHandler {
 	return NewSlogHandler(
 		slog.HandlerOptions{
@@ -67,6 +76,9 @@ func (h *SlogHandler) clone() *SlogHandler {
 }
 
 func (h *SlogHandler) checkAttrKey(k string) bool {
+	if k == "" {
+		return true
+	}
 	if k == h.FieldTimeInfo || k == h.FieldCaller || k == h.FieldPath {
 		return true
 	}
@@ -84,8 +96,35 @@ func (h *SlogHandler) Enabled(ctx context.Context, level slog.Level) bool {
 }
 
 func (h *SlogHandler) Handle(ctx context.Context, r slog.Record) {
+	mt := r.Time
+	t := mt.Round(0)
+	frame := linecaller(r.PC)
 	r2 := slog.NewRecord(time.Time{}, r.Level, r.Message, 0)
-	// TODO add attrs
+	r2.AddAttrs(
+		slog.Group(
+			h.FieldTimeInfo,
+			slog.Int64("mono_us", mt.UnixMicro()),
+			slog.Int64("unix_us", t.UnixMicro()),
+			slog.String("time", t.Format(time.RFC3339Nano)),
+		),
+		slog.Group(
+			h.FieldCaller,
+			slog.String("fn", frame.Function),
+			slog.String("src", frame.File+":"+strconv.Itoa(frame.Line)),
+		),
+		slog.String(h.FieldPath, h.Path),
+	)
+	attrKeys := map[string]struct{}{}
+	r.Attrs(func(attr slog.Attr) {
+		if h.checkAttrKey(attr.Key) {
+			return
+		}
+		if _, ok := attrKeys[attr.Key]; ok {
+			return
+		}
+		attrKeys[attr.Key] = struct{}{}
+		r2.AddAttrs(attr)
+	})
 	h.slogHandler.Handle(ctx, r2)
 }
 

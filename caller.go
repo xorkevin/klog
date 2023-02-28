@@ -14,9 +14,9 @@ type (
 	}
 )
 
-func linecaller(pc uintptr) *callerFrame {
+func linecaller(pc uintptr) callerFrame {
 	frame, _ := runtime.CallersFrames([]uintptr{pc}).Next()
-	return &callerFrame{
+	return callerFrame{
 		Function: frame.Function,
 		File:     frame.File,
 		Line:     frame.Line,
