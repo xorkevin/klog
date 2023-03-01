@@ -67,6 +67,7 @@ func copyStringSet(s map[string]struct{}) map[string]struct{} {
 func (h *SlogHandler) clone() *SlogHandler {
 	return &SlogHandler{
 		FieldTimeInfo: h.FieldTimeInfo,
+		FieldCaller:   h.FieldCaller,
 		FieldPath:     h.FieldPath,
 		PathSeparator: h.PathSeparator,
 		Path:          h.Path,
@@ -96,24 +97,32 @@ func (h *SlogHandler) Enabled(ctx context.Context, level slog.Level) bool {
 }
 
 func (h *SlogHandler) Handle(ctx context.Context, r slog.Record) {
-	mt := r.Time
-	t := mt.Round(0)
-	frame := linecaller(r.PC)
 	r2 := slog.NewRecord(time.Time{}, r.Level, r.Message, 0)
-	r2.AddAttrs(
-		slog.Group(
-			h.FieldTimeInfo,
-			slog.Int64("mono_us", mt.UnixMicro()),
-			slog.Int64("unix_us", t.UnixMicro()),
-			slog.String("time", t.Format(time.RFC3339Nano)),
-		),
-		slog.Group(
-			h.FieldCaller,
-			slog.String("fn", frame.Function),
-			slog.String("src", frame.File+":"+strconv.Itoa(frame.Line)),
-		),
-		slog.String(h.FieldPath, h.Path),
-	)
+	if !r.Time.IsZero() {
+		mt := r.Time
+		t := mt.Round(0)
+		r2.AddAttrs(
+			slog.Group(
+				h.FieldTimeInfo,
+				slog.Int64("mono_us", mt.UnixMicro()),
+				slog.Int64("unix_us", t.UnixMicro()),
+				slog.String("time", t.Format(time.RFC3339Nano)),
+			),
+		)
+	}
+	if r.PC != 0 {
+		frame := linecaller(r.PC)
+		r2.AddAttrs(
+			slog.Group(
+				h.FieldCaller,
+				slog.String("fn", frame.Function),
+				slog.String("src", frame.File+":"+strconv.Itoa(frame.Line)),
+			),
+		)
+	}
+	if h.Path != "" {
+		r2.AddAttrs(slog.String(h.FieldPath, h.Path))
+	}
 	attrKeys := map[string]struct{}{}
 	r.Attrs(func(attr slog.Attr) {
 		if h.checkAttrKey(attr.Key) {
@@ -125,6 +134,18 @@ func (h *SlogHandler) Handle(ctx context.Context, r slog.Record) {
 		attrKeys[attr.Key] = struct{}{}
 		r2.AddAttrs(attr)
 	})
+	for ctxAttrs := getCtxAttrs(ctx); ctxAttrs != nil; ctxAttrs = ctxAttrs.parent {
+		ctxAttrs.attrs.readAttrs(func(attr slog.Attr) {
+			if h.checkAttrKey(attr.Key) {
+				return
+			}
+			if _, ok := attrKeys[attr.Key]; ok {
+				return
+			}
+			attrKeys[attr.Key] = struct{}{}
+			r2.AddAttrs(attr)
+		})
+	}
 	h.slogHandler.Handle(ctx, r2)
 }
 

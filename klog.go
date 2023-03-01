@@ -66,6 +66,13 @@ func OptHandler(h Handler) LoggerOpt {
 	}
 }
 
+// OptSubhandler returns a [LoggerOpt] that sets [KLogger] handler
+func OptSubhandler(pathSegment string, attrs []slog.Attr) LoggerOpt {
+	return func(l *KLogger) {
+		l.handler = l.handler.Subhandler(pathSegment, attrs)
+	}
+}
+
 // OptMinLevel returns a [LoggerOpt] that sets [KLogger] minLevel
 func OptMinLevel(level slog.Level) LoggerOpt {
 	return func(l *KLogger) {
@@ -147,6 +154,15 @@ func (a *attrsList) addAttrs(attrs []slog.Attr) {
 	n := copy(a.inlineAttrs[a.numInlineAttrs:], attrs)
 	a.numInlineAttrs += n
 	a.attrs = append(a.attrs, attrs[n:]...)
+}
+
+func (l *attrsList) readAttrs(f func(a slog.Attr)) {
+	for i := 0; i < l.numInlineAttrs; i++ {
+		f(l.inlineAttrs[i])
+	}
+	for _, i := range l.attrs {
+		f(i)
+	}
 }
 
 type (
