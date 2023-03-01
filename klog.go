@@ -21,7 +21,7 @@ type (
 	// Handler is a log event handler
 	Handler interface {
 		Enabled(ctx context.Context, level slog.Level) bool
-		Handle(ctx context.Context, rec slog.Record)
+		Handle(ctx context.Context, rec slog.Record) error
 		Subhandler(pathSegment string, attrs []slog.Attr) Handler
 	}
 
@@ -42,7 +42,7 @@ type (
 )
 
 var (
-	defaultHandler Handler = NewJSONSlogHandler(NewSyncWriter(os.Stdout))
+	defaultHandler Handler = NewJSONSlogHandler(NewSyncWriter(os.Stderr))
 	defaultLogger  Logger  = New()
 )
 
@@ -113,7 +113,8 @@ func (l *KLogger) Log(ctx context.Context, level slog.Level, skip int, msg strin
 	rec := slog.NewRecord(t, level, msg, pc)
 	rec.AddAttrs(attrs...)
 
-	l.handler.Handle(ctx, rec)
+	// ignore errors for failing to handle logs
+	_ = l.handler.Handle(ctx, rec)
 }
 
 func linepc(skip int) uintptr {

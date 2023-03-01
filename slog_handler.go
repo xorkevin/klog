@@ -96,7 +96,7 @@ func (h *SlogHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return h.slogHandler.Enabled(ctx, level)
 }
 
-func (h *SlogHandler) Handle(ctx context.Context, r slog.Record) {
+func (h *SlogHandler) Handle(ctx context.Context, r slog.Record) error {
 	r2 := slog.NewRecord(time.Time{}, r.Level, r.Message, 0)
 	if !r.Time.IsZero() {
 		mt := r.Time
@@ -124,7 +124,7 @@ func (h *SlogHandler) Handle(ctx context.Context, r slog.Record) {
 		r2.AddAttrs(slog.String(h.FieldPath, h.Path))
 	}
 	attrKeys := map[string]struct{}{}
-	r.Attrs(func(attr slog.Attr) {
+	addFilteredAttrs := func(attr slog.Attr) {
 		if h.checkAttrKey(attr.Key) {
 			return
 		}
@@ -133,20 +133,12 @@ func (h *SlogHandler) Handle(ctx context.Context, r slog.Record) {
 		}
 		attrKeys[attr.Key] = struct{}{}
 		r2.AddAttrs(attr)
-	})
-	for ctxAttrs := getCtxAttrs(ctx); ctxAttrs != nil; ctxAttrs = ctxAttrs.parent {
-		ctxAttrs.attrs.readAttrs(func(attr slog.Attr) {
-			if h.checkAttrKey(attr.Key) {
-				return
-			}
-			if _, ok := attrKeys[attr.Key]; ok {
-				return
-			}
-			attrKeys[attr.Key] = struct{}{}
-			r2.AddAttrs(attr)
-		})
 	}
-	h.slogHandler.Handle(ctx, r2)
+	r.Attrs(addFilteredAttrs)
+	for ctxAttrs := getCtxAttrs(ctx); ctxAttrs != nil; ctxAttrs = ctxAttrs.parent {
+		ctxAttrs.attrs.readAttrs(addFilteredAttrs)
+	}
+	return h.slogHandler.Handle(ctx, r2)
 }
 
 func (h *SlogHandler) Subhandler(pathSegment string, attrs []slog.Attr) Handler {
