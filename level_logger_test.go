@@ -20,7 +20,7 @@ func TestLevelLogger(t *testing.T) {
 	t.Run("logs at levels", func(t *testing.T) {
 		t.Parallel()
 
-		stackRegex := regexp.MustCompile(`Stack trace \[\S+ \S+:\d+\]`)
+		stackRegex := regexp.MustCompile(`Stack trace\n\[\[\n\S+ \S+:\d+\n\]\]`)
 
 		assert := require.New(t)
 
@@ -83,7 +83,7 @@ func TestLevelLogger(t *testing.T) {
 			stackstr := stackRegex.FindString(errmsg)
 			assert.Contains(stackstr, "xorkevin.dev/klog/level_logger_test.go")
 			assert.Contains(stackstr, "xorkevin.dev/klog.TestLevelLogger")
-			assert.Equal("something failed: %!(STACKTRACE)", stackRegex.ReplaceAllString(errmsg, "%!(STACKTRACE)"))
+			assert.Equal("something failed\n--\n%!(STACKTRACE)", stackRegex.ReplaceAllString(errmsg, "%!(STACKTRACE)"))
 			stacktracestr, ok := logerr["trace"].(string)
 			assert.True(ok)
 			assert.True(strings.HasPrefix(stacktracestr, "xorkevin.dev/klog.TestLevelLogger"))
@@ -110,7 +110,7 @@ func TestLevelLogger(t *testing.T) {
 			stackstr := stackRegex.FindString(errstr)
 			assert.Contains(stackstr, "xorkevin.dev/klog/level_logger_test.go")
 			assert.Contains(stackstr, "xorkevin.dev/klog.TestLevelLogger")
-			assert.Equal("some warning: %!(STACKTRACE)", stackRegex.ReplaceAllString(errstr, "%!(STACKTRACE)"))
+			assert.Equal("some warning\n--\n%!(STACKTRACE)", stackRegex.ReplaceAllString(errstr, "%!(STACKTRACE)"))
 			stacktracestr, ok := logerr["trace"].(string)
 			assert.True(ok)
 			assert.True(strings.HasPrefix(stacktracestr, "xorkevin.dev/klog.TestLevelLogger"))
