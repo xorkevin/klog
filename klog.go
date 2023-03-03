@@ -10,25 +10,38 @@ import (
 )
 
 type (
+	Level  = slog.Level
+	Attr   = slog.Attr
+	Record = slog.Record
+)
+
+const (
+	LevelDebug = slog.LevelDebug
+	LevelInfo  = slog.LevelInfo
+	LevelWarn  = slog.LevelWarn
+	LevelError = slog.LevelError
+)
+
+type (
 	// Logger writes logs with context
 	Logger interface {
-		Enabled(ctx context.Context, level slog.Level) bool
-		Log(ctx context.Context, level slog.Level, skip int, msg string, attrs ...slog.Attr)
+		Enabled(ctx context.Context, level Level) bool
+		Log(ctx context.Context, level Level, skip int, msg string, attrs ...Attr)
 		Handler() Handler
-		Sublogger(pathSegment string, attrs []slog.Attr) Logger
+		Sublogger(pathSegment string, attrs []Attr) Logger
 	}
 
 	// Handler is a log event handler
 	Handler interface {
-		Enabled(ctx context.Context, level slog.Level) bool
-		Handle(ctx context.Context, rec slog.Record) error
-		Subhandler(pathSegment string, attrs []slog.Attr) Handler
+		Enabled(ctx context.Context, level Level) bool
+		Handle(ctx context.Context, rec Record) error
+		Subhandler(pathSegment string, attrs []Attr) Handler
 	}
 
 	// KLogger is a context logger that writes logs to a [Handler]
 	KLogger struct {
 		handler  Handler
-		minLevel slog.Level
+		minLevel Level
 		clock    Clock
 	}
 
@@ -50,7 +63,7 @@ var (
 func New(opts ...LoggerOpt) *KLogger {
 	l := &KLogger{
 		handler:  defaultHandler,
-		minLevel: slog.LevelInfo,
+		minLevel: LevelInfo,
 		clock:    RealTime{},
 	}
 	for _, i := range opts {
@@ -67,14 +80,14 @@ func OptHandler(h Handler) LoggerOpt {
 }
 
 // OptSubhandler returns a [LoggerOpt] that sets [KLogger] handler
-func OptSubhandler(pathSegment string, attrs []slog.Attr) LoggerOpt {
+func OptSubhandler(pathSegment string, attrs []Attr) LoggerOpt {
 	return func(l *KLogger) {
 		l.handler = l.handler.Subhandler(pathSegment, attrs)
 	}
 }
 
 // OptMinLevel returns a [LoggerOpt] that sets [KLogger] minLevel
-func OptMinLevel(level slog.Level) LoggerOpt {
+func OptMinLevel(level Level) LoggerOpt {
 	return func(l *KLogger) {
 		l.minLevel = level
 	}
@@ -82,9 +95,9 @@ func OptMinLevel(level slog.Level) LoggerOpt {
 
 // OptMinLevelStr returns a [LoggerOpt] that sets [KLogger] minLevel from a string
 func OptMinLevelStr(s string) LoggerOpt {
-	var level slog.Level
+	var level Level
 	if err := level.UnmarshalText([]byte(s)); err != nil {
-		level = slog.LevelInfo
+		level = LevelInfo
 	}
 	return OptMinLevel(level)
 }
@@ -97,12 +110,12 @@ func OptClock(c Clock) LoggerOpt {
 }
 
 // Enabled implements [Logger] and returns if the logger is enabled for a level
-func (l *KLogger) Enabled(ctx context.Context, level slog.Level) bool {
+func (l *KLogger) Enabled(ctx context.Context, level Level) bool {
 	return level >= l.minLevel && l.handler.Enabled(ctx, level)
 }
 
 // Log implements [Logger] and logs an event to its handler
-func (l *KLogger) Log(ctx context.Context, level slog.Level, skip int, msg string, attrs ...slog.Attr) {
+func (l *KLogger) Log(ctx context.Context, level Level, skip int, msg string, attrs ...Attr) {
 	if !l.Enabled(ctx, level) {
 		return
 	}
@@ -131,7 +144,7 @@ func (l *KLogger) Handler() Handler {
 }
 
 // Sublogger implements [SubLogger] and creates a new sublogger
-func (l *KLogger) Sublogger(pathSegment string, attrs []slog.Attr) Logger {
+func (l *KLogger) Sublogger(pathSegment string, attrs []Attr) Logger {
 	return &KLogger{
 		handler:  l.handler.Subhandler(pathSegment, attrs),
 		minLevel: l.minLevel,
@@ -145,19 +158,19 @@ const (
 
 type (
 	attrsList struct {
-		inlineAttrs    [eventInlineAttrsSize]slog.Attr
+		inlineAttrs    [eventInlineAttrsSize]Attr
 		numInlineAttrs int
-		attrs          []slog.Attr
+		attrs          []Attr
 	}
 )
 
-func (a *attrsList) addAttrs(attrs []slog.Attr) {
+func (a *attrsList) addAttrs(attrs []Attr) {
 	n := copy(a.inlineAttrs[a.numInlineAttrs:], attrs)
 	a.numInlineAttrs += n
 	a.attrs = append(a.attrs, attrs[n:]...)
 }
 
-func (l *attrsList) readAttrs(f func(a slog.Attr)) {
+func (l *attrsList) readAttrs(f func(a Attr)) {
 	for i := 0; i < l.numInlineAttrs; i++ {
 		f(l.inlineAttrs[i])
 	}
@@ -191,12 +204,12 @@ func setCtxAttrs(ctx context.Context, fields *ctxAttrs) context.Context {
 }
 
 // CtxWithAttrs adds log attrs to context
-func CtxWithAttrs(ctx context.Context, attrs ...slog.Attr) context.Context {
+func CtxWithAttrs(ctx context.Context, attrs ...Attr) context.Context {
 	return ExtendCtx(ctx, ctx, attrs...)
 }
 
 // ExtendCtx adds log attrs to context
-func ExtendCtx(dest, ctx context.Context, attrs ...slog.Attr) context.Context {
+func ExtendCtx(dest, ctx context.Context, attrs ...Attr) context.Context {
 	k := &ctxAttrs{
 		parent: getCtxAttrs(ctx),
 	}
