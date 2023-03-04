@@ -124,7 +124,7 @@ func OptHandler(h Handler) LoggerOpt {
 }
 
 // OptSubhandler returns a [LoggerOpt] that sets [KLogger] handler
-func OptSubhandler(pathSegment string, attrs []Attr) LoggerOpt {
+func OptSubhandler(pathSegment string, attrs ...Attr) LoggerOpt {
 	return func(l *KLogger) {
 		l.handler = l.handler.Subhandler(pathSegment, attrs)
 	}
