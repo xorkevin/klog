@@ -22,13 +22,57 @@ const (
 	LevelError = slog.LevelError
 )
 
+func AString(key string, value string) Attr {
+	return slog.String(key, value)
+}
+
+func AInt(key string, value int) Attr {
+	return slog.Int(key, value)
+}
+
+func AInt64(key string, value int64) Attr {
+	return slog.Int64(key, value)
+}
+
+func AUint64(key string, value uint64) Attr {
+	return slog.Uint64(key, value)
+}
+
+func AFloat64(key string, value float64) Attr {
+	return slog.Float64(key, value)
+}
+
+func ABool(key string, value bool) Attr {
+	return slog.Bool(key, value)
+}
+
+func ATime(key string, value time.Time) Attr {
+	return slog.Time(key, value)
+}
+
+func ADuration(key string, value time.Duration) Attr {
+	return slog.Duration(key, value)
+}
+
+func AGroup(key string, attrs ...Attr) Attr {
+	return slog.Group(key, attrs...)
+}
+
+func AAny(key string, value any) Attr {
+	return slog.Any(key, value)
+}
+
+func NewRecord(t time.Time, level Level, msg string, pc uintptr) Record {
+	return slog.NewRecord(t, level, msg, pc)
+}
+
 type (
 	// Logger writes logs with context
 	Logger interface {
 		Enabled(ctx context.Context, level Level) bool
 		Log(ctx context.Context, level Level, skip int, msg string, attrs ...Attr)
 		Handler() Handler
-		Sublogger(pathSegment string, attrs []Attr) Logger
+		Sublogger(pathSegment string, attrs ...Attr) Logger
 	}
 
 	// Handler is a log event handler
@@ -144,7 +188,7 @@ func (l *KLogger) Handler() Handler {
 }
 
 // Sublogger implements [SubLogger] and creates a new sublogger
-func (l *KLogger) Sublogger(pathSegment string, attrs []Attr) Logger {
+func (l *KLogger) Sublogger(pathSegment string, attrs ...Attr) Logger {
 	return &KLogger{
 		handler:  l.handler.Subhandler(pathSegment, attrs),
 		minLevel: l.minLevel,

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slog"
 )
 
 type (
@@ -26,7 +25,7 @@ func (c testClock) Time() time.Time {
 func TestKLogger(t *testing.T) {
 	t.Parallel()
 
-	ctx := CtxWithAttrs(context.Background(), slog.String("hello", "world"))
+	ctx := CtxWithAttrs(context.Background(), AString("hello", "world"))
 
 	for _, tc := range []struct {
 		Test  string
@@ -34,17 +33,17 @@ func TestKLogger(t *testing.T) {
 		T     time.Time
 		Ctx   context.Context
 		Msg   string
-		Attrs []slog.Attr
+		Attrs []Attr
 		Exp   map[string]interface{}
 		Empty bool
 	}{
 		{
 			Test:  "logs messages",
-			Opts:  []LoggerOpt{OptMinLevelStr("INFO"), OptSubhandler("base", []slog.Attr{slog.String("f1", "v1")})},
+			Opts:  []LoggerOpt{OptMinLevelStr("INFO"), OptSubhandler("base", []Attr{AString("f1", "v1")})},
 			T:     time.Date(1991, time.August, 25, 20, 57, 8, 0, time.UTC),
-			Ctx:   CtxWithAttrs(ctx, slog.Any("f2", []string{"v2"})),
+			Ctx:   CtxWithAttrs(ctx, AAny("f2", []string{"v2"})),
 			Msg:   "test message",
-			Attrs: []slog.Attr{slog.String("f3", "v3"), slog.String("hello", "foo")},
+			Attrs: []Attr{AString("f3", "v3"), AString("hello", "foo")},
 			Exp: map[string]interface{}{
 				"level": "INFO",
 				"msg":   "test message",
@@ -62,7 +61,7 @@ func TestKLogger(t *testing.T) {
 		},
 		{
 			Test: "handles nil context",
-			Opts: []LoggerOpt{OptMinLevelStr("INFO"), OptSubhandler("", []slog.Attr{slog.String("f1", "v2")})},
+			Opts: []LoggerOpt{OptMinLevelStr("INFO"), OptSubhandler("", []Attr{AString("f1", "v2")})},
 			T:    time.Date(1991, time.August, 25, 20, 57, 8, 0, time.UTC),
 			Ctx:  nil,
 			Msg:  "some message",
@@ -80,7 +79,7 @@ func TestKLogger(t *testing.T) {
 		},
 		{
 			Test:  "below level",
-			Opts:  []LoggerOpt{OptMinLevelStr("WARN"), OptSubhandler("", []slog.Attr{slog.String("f1", "v1")})},
+			Opts:  []LoggerOpt{OptMinLevelStr("WARN"), OptSubhandler("", []Attr{AString("f1", "v1")})},
 			T:     time.Date(1991, time.August, 25, 20, 57, 8, 0, time.UTC),
 			Ctx:   nil,
 			Msg:   "some message",
@@ -95,8 +94,8 @@ func TestKLogger(t *testing.T) {
 
 			var b bytes.Buffer
 			var l Logger = New(append([]LoggerOpt{OptHandler(NewJSONSlogHandler(NewSyncWriter(&b))), OptClock(testClock{t: tc.T})}, tc.Opts...)...)
-			l = l.Sublogger("sublog", []slog.Attr{slog.String("f1", "v11")})
-			l.Log(tc.Ctx, slog.LevelInfo, 0, tc.Msg, tc.Attrs...)
+			l = l.Sublogger("sublog", AString("f1", "v11"))
+			l.Log(tc.Ctx, LevelInfo, 0, tc.Msg, tc.Attrs...)
 
 			if tc.Empty {
 				assert.Equal(0, b.Len())

@@ -43,7 +43,7 @@ func NewSlogHandler(handler slog.Handler) *SlogHandler {
 func NewTextSlogHandler(w io.Writer) *SlogHandler {
 	return NewSlogHandler(
 		slog.HandlerOptions{
-			Level: slog.LevelDebug,
+			Level: LevelDebug,
 		}.NewTextHandler(w),
 	)
 }
@@ -51,7 +51,7 @@ func NewTextSlogHandler(w io.Writer) *SlogHandler {
 func NewJSONSlogHandler(w io.Writer) *SlogHandler {
 	return NewSlogHandler(
 		slog.HandlerOptions{
-			Level: slog.LevelDebug,
+			Level: LevelDebug,
 		}.NewJSONHandler(w),
 	)
 }
@@ -92,39 +92,39 @@ func (h *SlogHandler) checkAttrKey(k string) bool {
 	return false
 }
 
-func (h *SlogHandler) Enabled(ctx context.Context, level slog.Level) bool {
+func (h *SlogHandler) Enabled(ctx context.Context, level Level) bool {
 	return h.slogHandler.Enabled(ctx, level)
 }
 
-func (h *SlogHandler) Handle(ctx context.Context, r slog.Record) error {
-	r2 := slog.NewRecord(time.Time{}, r.Level, r.Message, 0)
+func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
+	r2 := NewRecord(time.Time{}, r.Level, r.Message, 0)
 	if !r.Time.IsZero() {
 		mt := r.Time
 		t := mt.Round(0)
 		r2.AddAttrs(
-			slog.Group(
+			AGroup(
 				h.FieldTimeInfo,
-				slog.Int64("mono_us", mt.UnixMicro()),
-				slog.Int64("unix_us", t.UnixMicro()),
-				slog.String("time", t.Format(time.RFC3339Nano)),
+				AInt64("mono_us", mt.UnixMicro()),
+				AInt64("unix_us", t.UnixMicro()),
+				AString("time", t.Format(time.RFC3339Nano)),
 			),
 		)
 	}
 	if r.PC != 0 {
 		frame := linecaller(r.PC)
 		r2.AddAttrs(
-			slog.Group(
+			AGroup(
 				h.FieldCaller,
-				slog.String("fn", frame.Function),
-				slog.String("src", frame.File+":"+strconv.Itoa(frame.Line)),
+				AString("fn", frame.Function),
+				AString("src", frame.File+":"+strconv.Itoa(frame.Line)),
 			),
 		)
 	}
 	if h.Path != "" {
-		r2.AddAttrs(slog.String(h.FieldPath, h.Path))
+		r2.AddAttrs(AString(h.FieldPath, h.Path))
 	}
 	attrKeys := map[string]struct{}{}
-	addFilteredAttrs := func(attr slog.Attr) {
+	addFilteredAttrs := func(attr Attr) {
 		if h.checkAttrKey(attr.Key) {
 			return
 		}
@@ -141,13 +141,13 @@ func (h *SlogHandler) Handle(ctx context.Context, r slog.Record) error {
 	return h.slogHandler.Handle(ctx, r2)
 }
 
-func (h *SlogHandler) Subhandler(pathSegment string, attrs []slog.Attr) Handler {
+func (h *SlogHandler) Subhandler(pathSegment string, attrs []Attr) Handler {
 	h2 := h.clone()
 	if pathSegment != "" {
 		h2.Path += h2.PathSeparator + pathSegment
 	}
 	if len(attrs) > 0 {
-		attrsToAdd := make([]slog.Attr, 0, len(attrs))
+		attrsToAdd := make([]Attr, 0, len(attrs))
 		for _, i := range attrs {
 			if h2.checkAttrKey(i.Key) {
 				continue

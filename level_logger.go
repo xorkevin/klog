@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"golang.org/x/exp/slog"
 	"xorkevin.dev/kerrors"
 )
 
@@ -25,21 +24,21 @@ func NewLevelLogger(l Logger) *LevelLogger {
 }
 
 // Debug logs at [LevelDebug]
-func (l *LevelLogger) Debug(ctx context.Context, msg string, attrs ...slog.Attr) {
-	l.Logger.Log(ctx, slog.LevelDebug, 1+l.Skip, msg, attrs...)
+func (l *LevelLogger) Debug(ctx context.Context, msg string, attrs ...Attr) {
+	l.Logger.Log(ctx, LevelDebug, 1+l.Skip, msg, attrs...)
 }
 
 // Info logs at [LevelInfo]
-func (l *LevelLogger) Info(ctx context.Context, msg string, attrs ...slog.Attr) {
-	l.Logger.Log(ctx, slog.LevelInfo, 1+l.Skip, msg, attrs...)
+func (l *LevelLogger) Info(ctx context.Context, msg string, attrs ...Attr) {
+	l.Logger.Log(ctx, LevelInfo, 1+l.Skip, msg, attrs...)
 }
 
 // Warn logs at [LevelWarn]
-func (l *LevelLogger) Warn(ctx context.Context, msg string, attrs ...slog.Attr) {
-	l.Logger.Log(ctx, slog.LevelWarn, 1+l.Skip, msg, attrs...)
+func (l *LevelLogger) Warn(ctx context.Context, msg string, attrs ...Attr) {
+	l.Logger.Log(ctx, LevelWarn, 1+l.Skip, msg, attrs...)
 }
 
-func getErrAttr(err error) (string, slog.Attr) {
+func getErrAttr(err error) (string, Attr) {
 	msg := "plain-error"
 	var msger kerrors.ErrorMsger
 	if errors.As(err, &msger) {
@@ -50,26 +49,26 @@ func getErrAttr(err error) (string, slog.Attr) {
 	if errors.As(err, &stackstringer) {
 		stacktrace = stackstringer.StackString()
 	}
-	return msg, slog.Group(
+	return msg, AGroup(
 		"err",
-		slog.String("msg", err.Error()),
-		slog.String("trace", stacktrace),
+		AString("msg", err.Error()),
+		AString("trace", stacktrace),
 	)
 }
 
 // WarnErr logs at [LevelWarn]
-func (l *LevelLogger) WarnErr(ctx context.Context, err error, attrs ...slog.Attr) {
+func (l *LevelLogger) WarnErr(ctx context.Context, err error, attrs ...Attr) {
 	msg, attr := getErrAttr(err)
-	l.Logger.Log(ctx, slog.LevelWarn, 1+l.Skip, msg, append([]slog.Attr{attr}, attrs...)...)
+	l.Logger.Log(ctx, LevelWarn, 1+l.Skip, msg, append([]Attr{attr}, attrs...)...)
 }
 
 // Error logs at [LevelError]
-func (l *LevelLogger) Error(ctx context.Context, msg string, attrs ...slog.Attr) {
-	l.Logger.Log(ctx, slog.LevelError, 1+l.Skip, msg, attrs...)
+func (l *LevelLogger) Error(ctx context.Context, msg string, attrs ...Attr) {
+	l.Logger.Log(ctx, LevelError, 1+l.Skip, msg, attrs...)
 }
 
 // Err logs an error [LevelError]
-func (l *LevelLogger) Err(ctx context.Context, err error, attrs ...slog.Attr) {
+func (l *LevelLogger) Err(ctx context.Context, err error, attrs ...Attr) {
 	msg, attr := getErrAttr(err)
-	l.Logger.Log(ctx, slog.LevelError, 1+l.Skip, msg, append([]slog.Attr{attr}, attrs...)...)
+	l.Logger.Log(ctx, LevelError, 1+l.Skip, msg, append([]Attr{attr}, attrs...)...)
 }

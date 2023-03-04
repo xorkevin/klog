@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slog"
 	"xorkevin.dev/kerrors"
 )
 
@@ -25,7 +24,7 @@ func TestLevelLogger(t *testing.T) {
 		assert := require.New(t)
 
 		var b bytes.Buffer
-		l := NewLevelLogger(New(OptMinLevel(slog.LevelDebug), OptHandler(NewJSONSlogHandler(NewSyncWriter(&b)))))
+		l := NewLevelLogger(New(OptMinLevel(LevelDebug), OptHandler(NewJSONSlogHandler(NewSyncWriter(&b)))))
 		l.Debug(context.Background(), "a debug msg")
 		l.Info(context.Background(), "an info msg")
 		l.Warn(context.Background(), "a warning")
