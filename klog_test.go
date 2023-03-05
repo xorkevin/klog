@@ -39,7 +39,7 @@ func TestKLogger(t *testing.T) {
 	}{
 		{
 			Test:  "logs messages",
-			Opts:  []LoggerOpt{OptMinLevelStr("INFO"), OptSubhandler("base", []Attr{AString("f1", "v1")})},
+			Opts:  []LoggerOpt{OptMinLevelStr("INFO"), OptSubhandler("base", AString("f1", "v1"))},
 			T:     time.Date(1991, time.August, 25, 20, 57, 8, 0, time.UTC),
 			Ctx:   CtxWithAttrs(ctx, AAny("f2", []string{"v2"})),
 			Msg:   "test message",
@@ -61,7 +61,7 @@ func TestKLogger(t *testing.T) {
 		},
 		{
 			Test: "handles nil context",
-			Opts: []LoggerOpt{OptMinLevelStr("INFO"), OptSubhandler("", []Attr{AString("f1", "v2")})},
+			Opts: []LoggerOpt{OptMinLevelStr("INFO"), OptSubhandler("", AString("f1", "v2"))},
 			T:    time.Date(1991, time.August, 25, 20, 57, 8, 0, time.UTC),
 			Ctx:  nil,
 			Msg:  "some message",
@@ -79,7 +79,7 @@ func TestKLogger(t *testing.T) {
 		},
 		{
 			Test:  "below level",
-			Opts:  []LoggerOpt{OptMinLevelStr("WARN"), OptSubhandler("", []Attr{AString("f1", "v1")})},
+			Opts:  []LoggerOpt{OptMinLevelStr("WARN"), OptSubhandler("", AString("f1", "v1"))},
 			T:     time.Date(1991, time.August, 25, 20, 57, 8, 0, time.UTC),
 			Ctx:   nil,
 			Msg:   "some message",
