@@ -72,14 +72,14 @@ type (
 		Enabled(ctx context.Context, level Level) bool
 		Log(ctx context.Context, level Level, skip int, msg string, attrs ...Attr)
 		Handler() Handler
-		Sublogger(pathSegment string, attrs ...Attr) Logger
+		Sublogger(modSegment string, attrs ...Attr) Logger
 	}
 
 	// Handler is a log event handler
 	Handler interface {
 		Enabled(ctx context.Context, level Level) bool
 		Handle(ctx context.Context, rec Record) error
-		Subhandler(pathSegment string, attrs []Attr) Handler
+		Subhandler(modSegment string, attrs []Attr) Handler
 	}
 
 	// KLogger is a context logger that writes logs to a [Handler]
@@ -124,9 +124,9 @@ func OptHandler(h Handler) LoggerOpt {
 }
 
 // OptSubhandler returns a [LoggerOpt] that sets [KLogger] handler
-func OptSubhandler(pathSegment string, attrs ...Attr) LoggerOpt {
+func OptSubhandler(modSegment string, attrs ...Attr) LoggerOpt {
 	return func(l *KLogger) {
-		l.handler = l.handler.Subhandler(pathSegment, attrs)
+		l.handler = l.handler.Subhandler(modSegment, attrs)
 	}
 }
 
@@ -188,9 +188,9 @@ func (l *KLogger) Handler() Handler {
 }
 
 // Sublogger implements [SubLogger] and creates a new sublogger
-func (l *KLogger) Sublogger(pathSegment string, attrs ...Attr) Logger {
+func (l *KLogger) Sublogger(modSegment string, attrs ...Attr) Logger {
 	return &KLogger{
-		handler:  l.handler.Subhandler(pathSegment, attrs),
+		handler:  l.handler.Subhandler(modSegment, attrs),
 		minLevel: l.minLevel,
 		clock:    l.clock,
 	}

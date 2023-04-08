@@ -47,7 +47,7 @@ func TestKLogger(t *testing.T) {
 			Exp: map[string]interface{}{
 				"level": "INFO",
 				"msg":   "test message",
-				"path":  ".base.sublog",
+				"mod":   ".base.sublog",
 				"t": map[string]interface{}{
 					"time":    "1991-08-25T20:57:08Z",
 					"unix_us": json.Number(strconv.Itoa(683153828000000)),
@@ -68,7 +68,7 @@ func TestKLogger(t *testing.T) {
 			Exp: map[string]interface{}{
 				"level": "INFO",
 				"msg":   "some message",
-				"path":  ".sublog",
+				"mod":   ".sublog",
 				"t": map[string]interface{}{
 					"time":    "1991-08-25T20:57:08Z",
 					"unix_us": json.Number(strconv.Itoa(683153828000000)),

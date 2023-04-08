@@ -19,9 +19,9 @@ type (
 	SlogHandler struct {
 		FieldTimeInfo string
 		FieldCaller   string
-		FieldPath     string
-		PathSeparator string
-		Path          string
+		FieldMod      string
+		ModSeparator  string
+		Mod           string
 		attrKeySet    map[string]struct{}
 		slogHandler   slog.Handler
 	}
@@ -32,9 +32,9 @@ func NewSlogHandler(handler slog.Handler) *SlogHandler {
 	return &SlogHandler{
 		FieldTimeInfo: "t",
 		FieldCaller:   "caller",
-		FieldPath:     "path",
-		PathSeparator: ".",
-		Path:          "",
+		FieldMod:      "mod",
+		ModSeparator:  ".",
+		Mod:           "",
 		attrKeySet:    map[string]struct{}{},
 		slogHandler:   handler,
 	}
@@ -68,9 +68,9 @@ func (h *SlogHandler) clone() *SlogHandler {
 	return &SlogHandler{
 		FieldTimeInfo: h.FieldTimeInfo,
 		FieldCaller:   h.FieldCaller,
-		FieldPath:     h.FieldPath,
-		PathSeparator: h.PathSeparator,
-		Path:          h.Path,
+		FieldMod:      h.FieldMod,
+		ModSeparator:  h.ModSeparator,
+		Mod:           h.Mod,
 		attrKeySet:    copyStringSet(h.attrKeySet),
 		slogHandler:   h.slogHandler,
 	}
@@ -80,7 +80,7 @@ func (h *SlogHandler) checkAttrKey(k string) bool {
 	if k == "" {
 		return true
 	}
-	if k == h.FieldTimeInfo || k == h.FieldCaller || k == h.FieldPath {
+	if k == h.FieldTimeInfo || k == h.FieldCaller || k == h.FieldMod {
 		return true
 	}
 	if _, ok := slogBuiltinKeys[k]; ok {
@@ -120,8 +120,8 @@ func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 			),
 		)
 	}
-	if h.Path != "" {
-		r2.AddAttrs(AString(h.FieldPath, h.Path))
+	if h.Mod != "" {
+		r2.AddAttrs(AString(h.FieldMod, h.Mod))
 	}
 	attrKeys := map[string]struct{}{}
 	addFilteredAttrs := func(attr Attr) {
@@ -141,10 +141,10 @@ func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 	return h.slogHandler.Handle(ctx, r2)
 }
 
-func (h *SlogHandler) Subhandler(pathSegment string, attrs []Attr) Handler {
+func (h *SlogHandler) Subhandler(modSegment string, attrs []Attr) Handler {
 	h2 := h.clone()
-	if pathSegment != "" {
-		h2.Path += h2.PathSeparator + pathSegment
+	if modSegment != "" {
+		h2.Mod += h2.ModSeparator + modSegment
 	}
 	if len(attrs) > 0 {
 		attrsToAdd := make([]Attr, 0, len(attrs))
