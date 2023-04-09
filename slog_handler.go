@@ -98,7 +98,7 @@ func (h *SlogHandler) Enabled(ctx context.Context, level Level) bool {
 
 func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 	r2 := NewRecord(time.Time{}, r.Level, r.Message, 0)
-	if !r.Time.IsZero() {
+	if h.FieldTimeInfo != "" && !r.Time.IsZero() {
 		mt := r.Time
 		t := mt.Round(0)
 		r2.AddAttrs(
@@ -110,7 +110,7 @@ func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 			),
 		)
 	}
-	if r.PC != 0 {
+	if h.FieldCaller != "" && r.PC != 0 {
 		frame := linecaller(r.PC)
 		r2.AddAttrs(
 			AGroup(
@@ -120,7 +120,7 @@ func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 			),
 		)
 	}
-	if h.Mod != "" {
+	if h.FieldMod != "" && h.Mod != "" {
 		r2.AddAttrs(AString(h.FieldMod, h.Mod))
 	}
 	attrKeys := map[string]struct{}{}
