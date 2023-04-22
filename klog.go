@@ -2,7 +2,6 @@ package klog
 
 import (
 	"context"
-	"os"
 	"runtime"
 	"time"
 
@@ -98,15 +97,10 @@ type (
 	LoggerOpt = func(l *KLogger)
 )
 
-var (
-	defaultHandler Handler = NewJSONSlogHandler(NewSyncWriter(os.Stderr))
-	defaultLogger  Logger  = New()
-)
-
 // New creates a new [Logger]
 func New(opts ...LoggerOpt) *KLogger {
 	l := &KLogger{
-		handler:  defaultHandler,
+		handler:  DiscardHandler{},
 		minLevel: LevelInfo,
 		clock:    RealTime{},
 	}
@@ -259,4 +253,39 @@ func ExtendCtx(dest, ctx context.Context, attrs ...Attr) context.Context {
 	}
 	k.attrs.addAttrs(attrs)
 	return setCtxAttrs(dest, k)
+}
+
+type (
+	// Discard is a [Logger] that discards logs
+	Discard struct{}
+
+	// DiscardHandler is a [Handler] that discards logs
+	DiscardHandler struct{}
+)
+
+func (d Discard) Enabled(ctx context.Context, level Level) bool {
+	return false
+}
+
+func (d Discard) Log(ctx context.Context, level Level, skip int, msg string, attrs ...Attr) {
+}
+
+func (d Discard) Handler() Handler {
+	return DiscardHandler{}
+}
+
+func (d Discard) Sublogger(modSegment string, attrs ...Attr) Logger {
+	return d
+}
+
+func (d DiscardHandler) Enabled(ctx context.Context, level Level) bool {
+	return false
+}
+
+func (d DiscardHandler) Handle(ctx context.Context, rec Record) error {
+	return nil
+}
+
+func (d DiscardHandler) Subhandler(modSegment string, attrs []Attr) Handler {
+	return d
 }
