@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"maps"
 	"strconv"
 	"time"
 )
@@ -59,14 +60,6 @@ func NewJSONSlogHandler(w io.Writer) *SlogHandler {
 	)
 }
 
-func copyStringSet(s map[string]struct{}) map[string]struct{} {
-	m := map[string]struct{}{}
-	for k := range s {
-		m[k] = struct{}{}
-	}
-	return m
-}
-
 func (h *SlogHandler) clone() *SlogHandler {
 	return &SlogHandler{
 		FieldTimeInfo: h.FieldTimeInfo,
@@ -74,7 +67,7 @@ func (h *SlogHandler) clone() *SlogHandler {
 		FieldMod:      h.FieldMod,
 		ModSeparator:  h.ModSeparator,
 		Mod:           h.Mod,
-		attrKeySet:    copyStringSet(h.attrKeySet),
+		attrKeySet:    maps.Clone(h.attrKeySet),
 		slogHandler:   h.slogHandler,
 	}
 }
