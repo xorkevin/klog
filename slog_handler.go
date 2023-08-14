@@ -3,10 +3,9 @@ package klog
 import (
 	"context"
 	"io"
+	"log/slog"
 	"strconv"
 	"time"
-
-	"golang.org/x/exp/slog"
 )
 
 var slogBuiltinKeys = map[string]struct{}{
@@ -42,17 +41,21 @@ func NewSlogHandler(handler slog.Handler) *SlogHandler {
 
 func NewTextSlogHandler(w io.Writer) *SlogHandler {
 	return NewSlogHandler(
-		slog.HandlerOptions{
-			Level: LevelDebug,
-		}.NewTextHandler(w),
+		slog.NewTextHandler(w,
+			&slog.HandlerOptions{
+				Level: LevelDebug,
+			},
+		),
 	)
 }
 
 func NewJSONSlogHandler(w io.Writer) *SlogHandler {
 	return NewSlogHandler(
-		slog.HandlerOptions{
-			Level: LevelDebug,
-		}.NewJSONHandler(w),
+		slog.NewJSONHandler(w,
+			&slog.HandlerOptions{
+				Level: LevelDebug,
+			},
+		),
 	)
 }
 
@@ -124,15 +127,16 @@ func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 		r2.AddAttrs(AString(h.FieldMod, h.Mod))
 	}
 	attrKeys := map[string]struct{}{}
-	addFilteredAttrs := func(attr Attr) {
+	addFilteredAttrs := func(attr Attr) bool {
 		if h.checkAttrKey(attr.Key) {
-			return
+			return true
 		}
 		if _, ok := attrKeys[attr.Key]; ok {
-			return
+			return true
 		}
 		attrKeys[attr.Key] = struct{}{}
 		r2.AddAttrs(attr)
+		return true
 	}
 	r.Attrs(addFilteredAttrs)
 	for ctxAttrs := getCtxAttrs(ctx); ctxAttrs != nil; ctxAttrs = ctxAttrs.parent {

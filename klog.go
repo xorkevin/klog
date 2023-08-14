@@ -2,10 +2,9 @@ package klog
 
 import (
 	"context"
+	"log/slog"
 	"runtime"
 	"time"
-
-	"golang.org/x/exp/slog"
 )
 
 type (
@@ -54,7 +53,10 @@ func ADuration(key string, value time.Duration) Attr {
 }
 
 func AGroup(key string, attrs ...Attr) Attr {
-	return slog.Group(key, attrs...)
+	return slog.Attr{
+		Key:   key,
+		Value: slog.GroupValue(attrs...),
+	}
 }
 
 func AAny(key string, value any) Attr {
@@ -208,12 +210,16 @@ func (a *attrsList) addAttrs(attrs []Attr) {
 	a.attrs = append(a.attrs, attrs[n:]...)
 }
 
-func (l *attrsList) readAttrs(f func(a Attr)) {
+func (l *attrsList) readAttrs(f func(a Attr) bool) {
 	for i := 0; i < l.numInlineAttrs; i++ {
-		f(l.inlineAttrs[i])
+		if ok := f(l.inlineAttrs[i]); !ok {
+			return
+		}
 	}
 	for _, i := range l.attrs {
-		f(i)
+		if ok := f(i); !ok {
+			return
+		}
 	}
 }
 
