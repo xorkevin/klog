@@ -86,7 +86,6 @@ func TestKLogger(t *testing.T) {
 			Empty: true,
 		},
 	} {
-		tc := tc
 		t.Run(tc.Test, func(t *testing.T) {
 			t.Parallel()
 
