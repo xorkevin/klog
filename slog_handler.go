@@ -17,26 +17,28 @@ var slogBuiltinKeys = map[string]struct{}{
 type (
 	// SlogHandler writes logs to an [slog.Handler]
 	SlogHandler struct {
-		FieldTimeInfo string
-		FieldCaller   string
-		FieldMod      string
-		ModSeparator  string
-		Mod           string
-		attrKeySet    map[string]struct{}
-		slogHandler   slog.Handler
+		FieldTime    string
+		FieldTimeLoc *time.Location
+		FieldCaller  string
+		FieldMod     string
+		ModSeparator string
+		Mod          string
+		attrKeySet   map[string]struct{}
+		slogHandler  slog.Handler
 	}
 )
 
 // NewSlogHandler creates a new [*SlogHandler]
 func NewSlogHandler(handler slog.Handler) *SlogHandler {
 	return &SlogHandler{
-		FieldTimeInfo: "t",
-		FieldCaller:   "caller",
-		FieldMod:      "mod",
-		ModSeparator:  ".",
-		Mod:           "",
-		attrKeySet:    map[string]struct{}{},
-		slogHandler:   handler,
+		FieldTime:    "t",
+		FieldTimeLoc: time.UTC,
+		FieldCaller:  "caller",
+		FieldMod:     "mod",
+		ModSeparator: ".",
+		Mod:          "",
+		attrKeySet:   map[string]struct{}{},
+		slogHandler:  handler,
 	}
 }
 
@@ -62,13 +64,14 @@ func NewJSONSlogHandler(w io.Writer) *SlogHandler {
 
 func (h *SlogHandler) clone() *SlogHandler {
 	return &SlogHandler{
-		FieldTimeInfo: h.FieldTimeInfo,
-		FieldCaller:   h.FieldCaller,
-		FieldMod:      h.FieldMod,
-		ModSeparator:  h.ModSeparator,
-		Mod:           h.Mod,
-		attrKeySet:    maps.Clone(h.attrKeySet),
-		slogHandler:   h.slogHandler,
+		FieldTime:    h.FieldTime,
+		FieldTimeLoc: h.FieldTimeLoc,
+		FieldCaller:  h.FieldCaller,
+		FieldMod:     h.FieldMod,
+		ModSeparator: h.ModSeparator,
+		Mod:          h.Mod,
+		attrKeySet:   maps.Clone(h.attrKeySet),
+		slogHandler:  h.slogHandler,
 	}
 }
 
@@ -76,7 +79,7 @@ func (h *SlogHandler) checkAttrKey(k string) bool {
 	if k == "" {
 		return true
 	}
-	if k == h.FieldTimeInfo || k == h.FieldCaller || k == h.FieldMod {
+	if k == h.FieldTime || k == h.FieldCaller || k == h.FieldMod {
 		return true
 	}
 	if _, ok := slogBuiltinKeys[k]; ok {
@@ -94,8 +97,8 @@ func (h *SlogHandler) Enabled(ctx context.Context, level Level) bool {
 
 func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 	r2 := NewRecord(time.Time{}, r.Level, r.Message, 0)
-	if h.FieldTimeInfo != "" && !r.Time.IsZero() {
-		r2.AddAttrs(AString(h.FieldTimeInfo, r.Time.Format(time.RFC3339Nano)))
+	if h.FieldTime != "" && !r.Time.IsZero() {
+		r2.AddAttrs(AString(h.FieldTime, r.Time.In(h.FieldTimeLoc).Format(time.RFC3339Nano)))
 	}
 	if h.FieldCaller != "" && r.PC != 0 {
 		frame := linecaller(r.PC)
