@@ -4,10 +4,9 @@ import "time"
 
 type (
 	// RealTime is a real time clock
-	RealTime struct {
-	}
+	RealTime struct{}
 )
 
 func (c RealTime) Time() time.Time {
-	return time.Now().UTC()
+	return time.Now()
 }

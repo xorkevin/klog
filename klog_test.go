@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -48,11 +47,7 @@ func TestKLogger(t *testing.T) {
 				"level": "INFO",
 				"msg":   "test message",
 				"mod":   ".base.sublog",
-				"t": map[string]interface{}{
-					"time":    "1991-08-25T20:57:08Z",
-					"unix_us": json.Number(strconv.Itoa(683153828000000)),
-					"mono_us": json.Number(strconv.Itoa(683153828000000)),
-				},
+				"t":     "1991-08-25T20:57:08Z",
 				"f1":    "v1",
 				"hello": "foo",
 				"f2":    []interface{}{"v2"},
@@ -69,12 +64,8 @@ func TestKLogger(t *testing.T) {
 				"level": "INFO",
 				"msg":   "some message",
 				"mod":   ".sublog",
-				"t": map[string]interface{}{
-					"time":    "1991-08-25T20:57:08Z",
-					"unix_us": json.Number(strconv.Itoa(683153828000000)),
-					"mono_us": json.Number(strconv.Itoa(683153828000000)),
-				},
-				"f1": "v2",
+				"t":     "1991-08-25T20:57:08Z",
+				"f1":    "v2",
 			},
 		},
 		{

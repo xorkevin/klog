@@ -95,16 +95,7 @@ func (h *SlogHandler) Enabled(ctx context.Context, level Level) bool {
 func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 	r2 := NewRecord(time.Time{}, r.Level, r.Message, 0)
 	if h.FieldTimeInfo != "" && !r.Time.IsZero() {
-		mt := r.Time
-		t := mt.Round(0)
-		r2.AddAttrs(
-			AGroup(
-				h.FieldTimeInfo,
-				AInt64("mono_us", mt.UnixMicro()),
-				AInt64("unix_us", t.UnixMicro()),
-				AString("time", t.Format(time.RFC3339Nano)),
-			),
-		)
+		r2.AddAttrs(AString(h.FieldTimeInfo, r.Time.Format(time.RFC3339Nano)))
 	}
 	if h.FieldCaller != "" && r.PC != 0 {
 		frame := linecaller(r.PC)
