@@ -102,7 +102,7 @@ type (
 // New creates a new [Logger]
 func New(opts ...LoggerOpt) *KLogger {
 	l := &KLogger{
-		handler:  DiscardHandler{},
+		handler:  DiscardHandler,
 		minLevel: LevelInfo,
 		clock:    RealTime{},
 	}
@@ -211,7 +211,7 @@ func (a *attrsList) addAttrs(attrs []Attr) {
 }
 
 func (l *attrsList) readAttrs(f func(a Attr) bool) {
-	for i := 0; i < l.numInlineAttrs; i++ {
+	for i := range l.numInlineAttrs {
 		if ok := f(l.inlineAttrs[i]); !ok {
 			return
 		}
@@ -249,49 +249,49 @@ func setCtxAttrs(ctx context.Context, fields *ctxAttrs) context.Context {
 
 // CtxWithAttrs adds log attrs to context
 func CtxWithAttrs(ctx context.Context, attrs ...Attr) context.Context {
-	return ExtendCtx(ctx, ctx, attrs...)
-}
-
-// ExtendCtx adds log attrs to context
-func ExtendCtx(dest, ctx context.Context, attrs ...Attr) context.Context {
 	k := &ctxAttrs{
 		parent: getCtxAttrs(ctx),
 	}
 	k.attrs.addAttrs(attrs)
-	return setCtxAttrs(dest, k)
+	return setCtxAttrs(ctx, k)
 }
 
-type (
+var (
 	// Discard is a [Logger] that discards logs
-	Discard struct{}
+	Discard = discardLogger{}
 
 	// DiscardHandler is a [Handler] that discards logs
-	DiscardHandler struct{}
+	DiscardHandler = discardHandler{}
 )
 
-func (d Discard) Enabled(ctx context.Context, level Level) bool {
+type (
+	discardLogger  struct{}
+	discardHandler struct{}
+)
+
+func (d discardLogger) Enabled(ctx context.Context, level Level) bool {
 	return false
 }
 
-func (d Discard) Log(ctx context.Context, level Level, skip int, msg string, attrs ...Attr) {
+func (d discardLogger) Log(ctx context.Context, level Level, skip int, msg string, attrs ...Attr) {
 }
 
-func (d Discard) Handler() Handler {
-	return DiscardHandler{}
+func (d discardLogger) Handler() Handler {
+	return DiscardHandler
 }
 
-func (d Discard) Sublogger(modSegment string, attrs ...Attr) Logger {
+func (d discardLogger) Sublogger(modSegment string, attrs ...Attr) Logger {
 	return d
 }
 
-func (d DiscardHandler) Enabled(ctx context.Context, level Level) bool {
+func (d discardHandler) Enabled(ctx context.Context, level Level) bool {
 	return false
 }
 
-func (d DiscardHandler) Handle(ctx context.Context, rec Record) error {
+func (d discardHandler) Handle(ctx context.Context, rec Record) error {
 	return nil
 }
 
-func (d DiscardHandler) Subhandler(modSegment string, attrs []Attr) Handler {
+func (d discardHandler) Subhandler(modSegment string, attrs []Attr) Handler {
 	return d
 }

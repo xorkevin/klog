@@ -113,6 +113,6 @@ func TestKLogger(t *testing.T) {
 func TestDiscard(t *testing.T) {
 	t.Parallel()
 
-	var _ Logger = Discard{}
-	var _ Handler = DiscardHandler{}
+	var _ Logger = Discard
+	var _ Handler = DiscardHandler
 }
