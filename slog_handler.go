@@ -19,7 +19,7 @@ type (
 	SlogHandler struct {
 		FieldTime    string
 		FieldTimeLoc *time.Location
-		FieldCaller  string
+		FieldSrc     string
 		FieldMod     string
 		ModSeparator string
 		Mod          string
@@ -33,7 +33,7 @@ func NewSlogHandler(handler slog.Handler) *SlogHandler {
 	return &SlogHandler{
 		FieldTime:    "t",
 		FieldTimeLoc: time.UTC,
-		FieldCaller:  "caller",
+		FieldSrc:     "src",
 		FieldMod:     "mod",
 		ModSeparator: ".",
 		Mod:          "",
@@ -66,7 +66,7 @@ func (h *SlogHandler) clone() *SlogHandler {
 	return &SlogHandler{
 		FieldTime:    h.FieldTime,
 		FieldTimeLoc: h.FieldTimeLoc,
-		FieldCaller:  h.FieldCaller,
+		FieldSrc:     h.FieldSrc,
 		FieldMod:     h.FieldMod,
 		ModSeparator: h.ModSeparator,
 		Mod:          h.Mod,
@@ -79,7 +79,7 @@ func (h *SlogHandler) checkAttrKey(k string) bool {
 	if k == "" {
 		return true
 	}
-	if k == h.FieldTime || k == h.FieldCaller || k == h.FieldMod {
+	if k == h.FieldTime || k == h.FieldSrc || k == h.FieldMod {
 		return true
 	}
 	if _, ok := slogBuiltinKeys[k]; ok {
@@ -100,13 +100,13 @@ func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 	if h.FieldTime != "" && !r.Time.IsZero() {
 		r2.AddAttrs(AString(h.FieldTime, r.Time.In(h.FieldTimeLoc).Format(time.RFC3339Nano)))
 	}
-	if h.FieldCaller != "" && r.PC != 0 {
+	if h.FieldSrc != "" && r.PC != 0 {
 		frame := linecaller(r.PC)
 		r2.AddAttrs(
 			AGroup(
-				h.FieldCaller,
+				h.FieldSrc,
 				AString("fn", frame.Function),
-				AString("src", frame.File+":"+strconv.Itoa(frame.Line)),
+				AString("file", frame.File+":"+strconv.Itoa(frame.Line)),
 			),
 		)
 	}

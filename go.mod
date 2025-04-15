@@ -1,10 +1,12 @@
 module xorkevin.dev/klog
 
-go 1.22.0
+go 1.23
+
+toolchain go1.24.2
 
 require (
-	github.com/stretchr/testify v1.9.0
-	xorkevin.dev/kerrors v0.1.5
+	github.com/stretchr/testify v1.10.0
+	xorkevin.dev/kerrors v0.1.6
 )
 
 require (

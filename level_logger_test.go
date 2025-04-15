@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -13,13 +12,32 @@ import (
 	"xorkevin.dev/kerrors"
 )
 
+func searchMapKey(data any, key string) map[string]any {
+	switch v := data.(type) {
+	case map[string]any:
+		if _, ok := v[key]; ok {
+			return v
+		}
+		for _, val := range v {
+			if result := searchMapKey(val, key); result != nil {
+				return result
+			}
+		}
+	case []any:
+		for _, val := range v {
+			if result := searchMapKey(val, key); result != nil {
+				return result
+			}
+		}
+	}
+	return nil
+}
+
 func TestLevelLogger(t *testing.T) {
 	t.Parallel()
 
 	t.Run("logs at levels", func(t *testing.T) {
 		t.Parallel()
-
-		stackRegex := regexp.MustCompile(`Stack trace\n\[\[\n\S+ \S+:\d+\n\]\]`)
 
 		assert := require.New(t)
 
@@ -56,63 +74,72 @@ func TestLevelLogger(t *testing.T) {
 				Msg:   "error msg",
 			},
 		} {
-			var j map[string]interface{}
+			var j map[string]any
 			assert.NoError(d.Decode(&j))
 			assert.Equal(i.Level, j["level"])
 			assert.Equal(i.Msg, j["msg"])
 		}
 
 		{
-			var j map[string]interface{}
+			var j map[string]any
 			assert.NoError(d.Decode(&j))
 			assert.Equal("ERROR", j["level"])
-			caller, ok := j["caller"].(map[string]interface{})
+			src, ok := j["src"].(map[string]any)
 			assert.True(ok)
-			callerfn, ok := caller["fn"].(string)
+			srcfn, ok := src["fn"].(string)
 			assert.True(ok)
-			assert.True(strings.HasPrefix(callerfn, "xorkevin.dev/klog.TestLevelLogger"))
-			callersrc, ok := caller["src"].(string)
+			assert.True(strings.HasPrefix(srcfn, "xorkevin.dev/klog.TestLevelLogger"))
+			srcfile, ok := src["file"].(string)
 			assert.True(ok)
-			assert.True(strings.HasPrefix(callersrc, "xorkevin.dev/klog/level_logger_test.go"))
+			assert.True(strings.HasPrefix(srcfile, "xorkevin.dev/klog/level_logger_test.go"))
 			assert.Equal("something failed", j["msg"])
-			logerr, ok := j["err"].(map[string]interface{})
+			logerr, ok := j["err"].(map[string]any)
 			assert.True(ok)
-			errmsg, ok := logerr["msg"].(string)
+			stackTrace := searchMapKey(logerr, "stack")
+			assert.NotNil(stackTrace)
+			stack, ok := stackTrace["stack"].([]any)
 			assert.True(ok)
-			stackstr := stackRegex.FindString(errmsg)
-			assert.Contains(stackstr, "xorkevin.dev/klog/level_logger_test.go")
-			assert.Contains(stackstr, "xorkevin.dev/klog.TestLevelLogger")
-			assert.Equal("something failed\n--\n%!(STACKTRACE)", stackRegex.ReplaceAllString(errmsg, "%!(STACKTRACE)"))
-			stacktracestr, ok := logerr["trace"].(string)
-			assert.True(ok)
-			assert.True(strings.HasPrefix(stacktracestr, "xorkevin.dev/klog.TestLevelLogger"))
+			assert.NotNil(stack)
+			assert.Contains(stack[0].(map[string]any)["file"], "xorkevin.dev/klog/level_logger_test.go")
+			assert.Contains(stack[0].(map[string]any)["fn"], "xorkevin.dev/klog.TestLevelLogger")
+			delete(stackTrace, "stack")
+			assert.Equal(map[string]any{
+				"msg": "something failed",
+				"inner": map[string]any{
+					"msg": "Stack trace",
+				},
+			}, logerr)
 		}
 		{
-			var j map[string]interface{}
+			var j map[string]any
 			assert.NoError(d.Decode(&j))
 			assert.Equal("ERROR", j["level"])
-			assert.Equal("plain-error", j["msg"])
-			logerr, ok := j["err"].(map[string]interface{})
+			assert.Equal("plain error", j["msg"])
+			logerr, ok := j["err"].(string)
 			assert.True(ok)
-			assert.Equal("plain error", logerr["msg"])
-			assert.Equal("NONE", logerr["trace"])
+			assert.Equal("plain error", logerr)
 		}
 		{
-			var j map[string]interface{}
+			var j map[string]any
 			assert.NoError(d.Decode(&j))
 			assert.Equal("WARN", j["level"])
 			assert.Equal("some warning", j["msg"])
-			logerr, ok := j["err"].(map[string]interface{})
+			logerr, ok := j["err"].(map[string]any)
 			assert.True(ok)
-			errstr, ok := logerr["msg"].(string)
+			stackTrace := searchMapKey(logerr, "stack")
+			assert.NotNil(stackTrace)
+			stack, ok := stackTrace["stack"].([]any)
 			assert.True(ok)
-			stackstr := stackRegex.FindString(errstr)
-			assert.Contains(stackstr, "xorkevin.dev/klog/level_logger_test.go")
-			assert.Contains(stackstr, "xorkevin.dev/klog.TestLevelLogger")
-			assert.Equal("some warning\n--\n%!(STACKTRACE)", stackRegex.ReplaceAllString(errstr, "%!(STACKTRACE)"))
-			stacktracestr, ok := logerr["trace"].(string)
-			assert.True(ok)
-			assert.True(strings.HasPrefix(stacktracestr, "xorkevin.dev/klog.TestLevelLogger"))
+			assert.NotNil(stack)
+			assert.Contains(stack[0].(map[string]any)["file"], "xorkevin.dev/klog/level_logger_test.go")
+			assert.Contains(stack[0].(map[string]any)["fn"], "xorkevin.dev/klog.TestLevelLogger")
+			delete(stackTrace, "stack")
+			assert.Equal(map[string]any{
+				"msg": "some warning",
+				"inner": map[string]any{
+					"msg": "Stack trace",
+				},
+			}, logerr)
 		}
 
 		assert.False(d.More())

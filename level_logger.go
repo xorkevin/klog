@@ -2,9 +2,6 @@ package klog
 
 import (
 	"context"
-	"errors"
-
-	"xorkevin.dev/kerrors"
 )
 
 type (
@@ -38,28 +35,9 @@ func (l *LevelLogger) Warn(ctx context.Context, msg string, attrs ...Attr) {
 	l.Logger.Log(ctx, LevelWarn, 1+l.Skip, msg, attrs...)
 }
 
-func getErrAttr(err error) (string, Attr) {
-	msg := "plain-error"
-	var msger kerrors.ErrorMsger
-	if errors.As(err, &msger) {
-		msg = msger.ErrorMsg()
-	}
-	stacktrace := "NONE"
-	var stackstringer kerrors.StackStringer
-	if errors.As(err, &stackstringer) {
-		stacktrace = stackstringer.StackString()
-	}
-	return msg, AGroup(
-		"err",
-		AString("msg", err.Error()),
-		AString("trace", stacktrace),
-	)
-}
-
 // WarnErr logs at [LevelWarn]
 func (l *LevelLogger) WarnErr(ctx context.Context, err error, attrs ...Attr) {
-	msg, attr := getErrAttr(err)
-	l.Logger.Log(ctx, LevelWarn, 1+l.Skip, msg, append([]Attr{attr}, attrs...)...)
+	l.Logger.Log(ctx, LevelWarn, 1+l.Skip, err.Error(), append([]Attr{AAny("err", err)}, attrs...)...)
 }
 
 // Error logs at [LevelError]
@@ -69,6 +47,5 @@ func (l *LevelLogger) Error(ctx context.Context, msg string, attrs ...Attr) {
 
 // Err logs an error [LevelError]
 func (l *LevelLogger) Err(ctx context.Context, err error, attrs ...Attr) {
-	msg, attr := getErrAttr(err)
-	l.Logger.Log(ctx, LevelError, 1+l.Skip, msg, append([]Attr{attr}, attrs...)...)
+	l.Logger.Log(ctx, LevelError, 1+l.Skip, err.Error(), append([]Attr{AAny("err", err)}, attrs...)...)
 }
