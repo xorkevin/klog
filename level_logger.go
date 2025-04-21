@@ -2,6 +2,9 @@ package klog
 
 import (
 	"context"
+	"log/slog"
+
+	"xorkevin.dev/kerrors"
 )
 
 type (
@@ -37,7 +40,7 @@ func (l *LevelLogger) Warn(ctx context.Context, msg string, attrs ...Attr) {
 
 // WarnErr logs at [LevelWarn]
 func (l *LevelLogger) WarnErr(ctx context.Context, err error, attrs ...Attr) {
-	l.Logger.Log(ctx, LevelWarn, 1+l.Skip, err.Error(), append([]Attr{AAny("err", err)}, attrs...)...)
+	l.Logger.Log(ctx, LevelWarn, 1+l.Skip, err.Error(), append([]Attr{AAny("err", errLogValuer{err: err})}, attrs...)...)
 }
 
 // Error logs at [LevelError]
@@ -47,5 +50,15 @@ func (l *LevelLogger) Error(ctx context.Context, msg string, attrs ...Attr) {
 
 // Err logs an error [LevelError]
 func (l *LevelLogger) Err(ctx context.Context, err error, attrs ...Attr) {
-	l.Logger.Log(ctx, LevelError, 1+l.Skip, err.Error(), append([]Attr{AAny("err", err)}, attrs...)...)
+	l.Logger.Log(ctx, LevelError, 1+l.Skip, err.Error(), append([]Attr{AAny("err", errLogValuer{err: err})}, attrs...)...)
+}
+
+type (
+	errLogValuer struct {
+		err error
+	}
+)
+
+func (e errLogValuer) LogValue() slog.Value {
+	return slog.AnyValue(kerrors.JSONValue(e.err))
 }

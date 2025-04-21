@@ -105,7 +105,7 @@ func TestLevelLogger(t *testing.T) {
 			delete(stackTrace, "stack")
 			assert.Equal(map[string]any{
 				"msg": "something failed",
-				"inner": map[string]any{
+				"cause": map[string]any{
 					"msg": "Stack trace",
 				},
 			}, logerr)
@@ -136,7 +136,7 @@ func TestLevelLogger(t *testing.T) {
 			delete(stackTrace, "stack")
 			assert.Equal(map[string]any{
 				"msg": "some warning",
-				"inner": map[string]any{
+				"cause": map[string]any{
 					"msg": "Stack trace",
 				},
 			}, logerr)

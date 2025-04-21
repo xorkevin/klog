@@ -6,7 +6,7 @@ toolchain go1.24.2
 
 require (
 	github.com/stretchr/testify v1.10.0
-	xorkevin.dev/kerrors v0.1.6
+	xorkevin.dev/kerrors v0.1.7
 )
 
 require (

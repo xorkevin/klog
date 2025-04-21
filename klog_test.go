@@ -33,7 +33,7 @@ func TestKLogger(t *testing.T) {
 		Ctx   context.Context
 		Msg   string
 		Attrs []Attr
-		Exp   map[string]interface{}
+		Exp   map[string]any
 		Empty bool
 	}{
 		{
@@ -43,14 +43,14 @@ func TestKLogger(t *testing.T) {
 			Ctx:   CtxWithAttrs(ctx, AAny("f2", []string{"v2"})),
 			Msg:   "test message",
 			Attrs: []Attr{AString("f3", "v3"), AString("hello", "foo")},
-			Exp: map[string]interface{}{
+			Exp: map[string]any{
 				"level": "INFO",
 				"msg":   "test message",
 				"mod":   ".base.sublog",
 				"t":     "1991-08-25T20:57:08Z",
 				"f1":    "v1",
-				"hello": "foo",
-				"f2":    []interface{}{"v2"},
+				"hello": "world",
+				"f2":    []any{"v2"},
 				"f3":    "v3",
 			},
 		},
@@ -60,7 +60,7 @@ func TestKLogger(t *testing.T) {
 			T:    time.Date(1991, time.August, 25, 20, 57, 8, 0, time.UTC),
 			Ctx:  nil,
 			Msg:  "some message",
-			Exp: map[string]interface{}{
+			Exp: map[string]any{
 				"level": "INFO",
 				"msg":   "some message",
 				"mod":   ".sublog",
@@ -93,9 +93,9 @@ func TestKLogger(t *testing.T) {
 			}
 			d := json.NewDecoder(&b)
 			d.UseNumber()
-			var j map[string]interface{}
+			var j map[string]any
 			assert.NoError(d.Decode(&j))
-			src, ok := j["src"].(map[string]interface{})
+			src, ok := j["src"].(map[string]any)
 			assert.True(ok)
 			delete(j, "src")
 			assert.Equal(tc.Exp, j)

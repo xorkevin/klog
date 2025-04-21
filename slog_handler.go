@@ -125,10 +125,14 @@ func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 		r2.AddAttrs(attr)
 		return true
 	}
-	r.Attrs(addFilteredAttrs)
+	// ctx attrs have precedence of child before parent adhering to
+	// [context.Context] Value semantics
 	for ctxAttrs := getCtxAttrs(ctx); ctxAttrs != nil; ctxAttrs = ctxAttrs.parent {
 		ctxAttrs.attrs.readAttrs(addFilteredAttrs)
 	}
+	// attrs on the record have lowest precedence as to avoid overriding attrs on
+	// the context and handler
+	r.Attrs(addFilteredAttrs)
 	return h.slogHandler.Handle(ctx, r2)
 }
 
