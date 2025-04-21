@@ -7,6 +7,8 @@ import (
 	"maps"
 	"strconv"
 	"time"
+
+	"xorkevin.dev/kerrors"
 )
 
 var slogBuiltinKeys = map[string]struct{}{
@@ -122,6 +124,11 @@ func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 			return true
 		}
 		attrKeys[attr.Key] = struct{}{}
+		if attr.Value.Kind() == slog.KindAny {
+			if verr, ok := attr.Value.Any().(error); ok {
+				attr = AAny(attr.Key, errLogValuer{err: verr})
+			}
+		}
 		r2.AddAttrs(attr)
 		return true
 	}
@@ -134,6 +141,16 @@ func (h *SlogHandler) Handle(ctx context.Context, r Record) error {
 	// the context and handler
 	r.Attrs(addFilteredAttrs)
 	return h.slogHandler.Handle(ctx, r2)
+}
+
+type (
+	errLogValuer struct {
+		err error
+	}
+)
+
+func (e errLogValuer) LogValue() slog.Value {
+	return slog.AnyValue(kerrors.JSONValue(e.err))
 }
 
 func (h *SlogHandler) Subhandler(modSegment string, attrs []Attr) Handler {
